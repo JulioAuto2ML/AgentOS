@@ -1,0 +1,28 @@
+# Build outputs
+build/
+*.o
+*.ko
+*.so
+*.a
+
+# Test outputs
+tests/output/
+
+# Configuration files (optional, depending on needs)
+config/*.local
+
+# Temporary files
+*.tmp
+*~
+.#*
+
+# IDE-specific files
+.idea/
+.vscode/
+
+# Any compiled objects or binaries
+*.elf
+*.hex
+*.bin
+*.dwo
+/src/kernel/modules/*.ko
