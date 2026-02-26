@@ -1,3 +1,24 @@
+// =============================================================================
+// tools/exec.cpp — MCP tool: exec
+// =============================================================================
+//
+// Exposes shell command execution to LLM agents via MCP.
+//
+// Design decisions:
+//   - Uses `timeout(1)` from coreutils rather than SIGALRM/threads so that
+//     the child process *and* its descendants are killed when time is up.
+//   - Single-quotes the user command and escapes embedded single-quotes so
+//     that it runs literally in /bin/sh without injection risk.
+//   - stdout and stderr are merged (2>&1) — agents rarely need to distinguish
+//     them and it simplifies log reading.
+//   - working_dir is optional; if provided, a `cd` is prepended.
+//   - exit_code 124 is timeout(1)'s sentinel for "killed due to timeout".
+//
+// Security note:
+//   nos-server runs with the same privileges as the user who starts it.
+//   Restrict agent tool lists in agent YAML to avoid unwanted exec calls.
+// =============================================================================
+
 #include "tools.h"
 #include "mcp_message.h"
 #include <string>

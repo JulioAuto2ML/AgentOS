@@ -1,3 +1,31 @@
+// =============================================================================
+// src/nos-server/main.cpp — Entry point for nos-server
+// =============================================================================
+//
+// nos-server is an MCP (Model Context Protocol) server that exposes Linux OS
+// primitives as callable tools for LLM agents.
+//
+// Architecture:
+//   - Uses cpp-mcp (vendored, MIT) for JSON-RPC 2.0 over HTTP/SSE.
+//   - Each "tool" is a stateless function: (params_json) → result_json.
+//   - Tools are registered at startup; the server handles MCP sessions.
+//   - Graceful shutdown on SIGINT/SIGTERM (Ctrl-C or systemd stop).
+//
+// Tools registered (see tools/):
+//   exec           — Run a shell command with timeout
+//   read_file      — Read a file (with offset/limit)
+//   write_file     — Write/append to a file
+//   list_dir       — List directory entries
+//   sysinfo        — CPU, memory, disk, uptime snapshot
+//   process_list   — Running processes sorted by memory
+//   journal_query  — System log entries via journalctl
+//   network_info   — Network interfaces, IPs, and traffic counters
+//
+// Usage:
+//   nos-server [--host <host>] [--port <port>]
+//   Defaults: localhost:8888
+// =============================================================================
+
 #include "mcp_server.h"
 #include "tools/tools.h"
 #include <iostream>

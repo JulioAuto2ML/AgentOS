@@ -1,3 +1,29 @@
+// =============================================================================
+// tools/network.cpp — MCP tool: network_info
+// =============================================================================
+//
+// Reports network interface state, addresses, and traffic counters.
+//
+// Data sources (all kernel-exported, no root required):
+//
+//   /sys/class/net/<iface>/operstate  — "up", "down", "unknown"
+//   /sys/class/net/<iface>/address    — MAC address (xx:xx:xx:xx:xx:xx)
+//   /sys/class/net/<iface>/mtu        — MTU in bytes
+//
+//   /proc/net/dev  — Cumulative RX/TX byte counters per interface.
+//                   Format: two header lines, then one line per interface:
+//                   "  eth0:  rx_bytes rx_pkts ... tx_bytes tx_pkts ..."
+//                   We parse fields 0 (rx_bytes) and 8 (tx_bytes) after iface.
+//
+//   ip addr show   — IPv4 address with prefix (e.g. 192.168.1.10/24).
+//                   We call `ip` rather than parsing /proc/net/fib_trie, which
+//                   is complex and poorly documented.
+//
+// Interfaces can be filtered by name via the `interface` parameter.
+// Loopback (lo) is included unless filtered out — useful for agents that need
+// to verify that localhost services are bound.
+// =============================================================================
+
 #include "tools.h"
 #include "mcp_message.h"
 #include <fstream>

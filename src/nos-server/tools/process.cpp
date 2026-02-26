@@ -1,3 +1,37 @@
+// =============================================================================
+// tools/process.cpp — MCP tool: process_list
+// =============================================================================
+//
+// Lists running processes by reading the /proc pseudo-filesystem directly,
+// avoiding any dependency on external tools like `ps`.
+//
+// /proc/<PID>/stat format (space-separated, man 5 proc):
+//   1  pid           Process ID
+//   2  (comm)        Command name in parentheses — may contain spaces!
+//   3  state         R/S/D/Z/T/…
+//   4–13 ...
+//   14 utime         User-mode CPU jiffies
+//   15 stime         Kernel-mode CPU jiffies
+//   16–23 ...
+//   24 rss           Resident set size in pages
+//
+// Parsing approach:
+//   - Name is extracted between the first '(' and last ')' to handle names
+//     with embedded parentheses.
+//   - All other fields are indexed from the character after the closing ')'.
+//
+// RSS conversion:
+//   rss_pages * (PAGE_SIZE / 1024) → KB
+//   PAGE_SIZE obtained via sysconf(_SC_PAGESIZE).
+//
+// CPU% approximation:
+//   (utime + stime) / (uptime_seconds * HZ) * 100
+//   This is a lifetime average, not a real-time sample — sufficient for
+//   ranking purposes. Real-time sampling would require two reads ~100ms apart.
+//
+// Results are sorted by RSS (memory hog first) and capped by `limit`.
+// =============================================================================
+
 #include "tools.h"
 #include "mcp_message.h"
 #include <filesystem>

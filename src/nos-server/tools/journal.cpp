@@ -1,3 +1,25 @@
+// =============================================================================
+// tools/journal.cpp — MCP tool: journal_query
+// =============================================================================
+//
+// Gives agents access to system log entries via journalctl or syslog.
+//
+// Strategy:
+//   1. Check for /usr/bin/journalctl or /bin/journalctl (systemd).
+//   2. If found, run: journalctl --no-pager -n <lines> [-u unit] [--since ...] [-p level]
+//   3. If not found (SysV init, Alpine, etc.), fall back to:
+//              tail -n <lines> /var/log/syslog [| grep -i unit]
+//
+// Parameters mirror the most common journalctl flags:
+//   unit  → -u  (e.g. "nginx.service" or just "nginx")
+//   since → --since (e.g. "1 hour ago", "2025-01-01 12:00:00")
+//   level → -p  (emerg, alert, crit, err, warning, notice, info, debug)
+//   lines → -n  (default 50)
+//
+// Output is returned as a single "output" string so agents can grep/parse it
+// further via the exec tool if needed.
+// =============================================================================
+
 #include "tools.h"
 #include "mcp_message.h"
 #include <cstdio>

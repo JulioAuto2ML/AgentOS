@@ -1,3 +1,25 @@
+// =============================================================================
+// tools/filesystem.cpp — MCP tools: read_file, write_file, list_dir
+// =============================================================================
+//
+// Provides basic filesystem access for LLM agents. Three tools:
+//
+//   read_file  — Read a file's content, optionally with byte offset + limit.
+//                Useful for large files (e.g. logs) where the agent only
+//                needs a window. Binary files are returned as-is; the agent
+//                should know the encoding.
+//
+//   write_file — Write or append to a file. Creates parent directories
+//                automatically. This lets agents produce config files,
+//                reports, or scripts without needing exec + shell redirection.
+//
+//   list_dir   — List a directory's entries with name, type (file/dir/symlink)
+//                and size. Does not recurse — agents iterate themselves.
+//
+// All paths are passed through std::filesystem, which normalises them and
+// provides type-safe existence/type checks before opening files.
+// =============================================================================
+
 #include "tools.h"
 #include "mcp_message.h"
 #include <fstream>

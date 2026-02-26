@@ -1,3 +1,31 @@
+// =============================================================================
+// tools/sysinfo.cpp — MCP tool: sysinfo
+// =============================================================================
+//
+// Returns a JSON snapshot of system resources. Data sources:
+//
+//   CPU usage  — /proc/stat, sampled twice 100 ms apart.
+//                Formula: (busy_delta / total_delta) * 100.
+//                "busy" = user + nice + system + irq + softirq + steal.
+//                "total" = busy + idle + iowait.
+//                The 100 ms sleep gives a real-time sample rather than a
+//                lifetime average — much more useful for agents monitoring load.
+//
+//   Memory     — sys/sysinfo.h sysinfo(2) syscall.
+//                Gives totalram, freeram in bytes via mem_unit multiplier.
+//
+//   Disk       — statvfs(2) on "/" for f_blocks, f_bfree, f_frsize.
+//                Only the root filesystem is reported; agents can call
+//                exec("df -h") for a full picture.
+//
+//   Uptime     — sysinfo.uptime (seconds since boot).
+//
+//   Load avg   — sysinfo.loads[0/1/2] stored as fixed-point / 65536.
+//                Matches the three values shown by `uptime`.
+//
+//   Process count — sysinfo.procs (total runnable + sleeping).
+// =============================================================================
+
 #include "tools.h"
 #include "mcp_message.h"
 #include <fstream>
