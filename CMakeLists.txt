@@ -32,3 +32,4 @@ target_include_directories(mcp PUBLIC
 target_link_libraries(mcp PUBLIC Threads::Threads)
 
 add_subdirectory(src/nos-server)
+add_subdirectory(src/agent)

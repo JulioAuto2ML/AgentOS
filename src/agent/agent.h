@@ -1,0 +1,63 @@
+// =============================================================================
+// src/agent/agent.h — AgentInstance: runs an LLM agent with MCP tool access
+// =============================================================================
+//
+// An AgentInstance ties together:
+//   - AgentConfig (from YAML): name, model, tools allowlist, system prompt
+//   - LLMClient: sends chat completions to the configured LLM backend
+//   - MCP tool loop: calls nos-server tools and feeds results back to the LLM
+//
+// Typical usage:
+//
+//   AgentConfig cfg = AgentConfig::from_file("agents/sysmonitor.yaml");
+//   AgentInstance agent(cfg, "http://localhost:8888");  // nos-server URL
+//   std::string answer = agent.run("What processes are using the most RAM?");
+//   std::cout << answer << "\n";
+//
+// The agent iterates up to cfg.max_steps rounds of:
+//   LLM call → tool call → append result → repeat
+// until the model produces a plain text response (no tool calls).
+// =============================================================================
+
+#pragma once
+#include "agent_config.h"
+#include "llm_client.h"
+#include <string>
+#include <vector>
+
+class AgentInstance {
+public:
+    // nos_server_url: base URL of nos-server, e.g. "http://localhost:8888"
+    // If llm_url is set in cfg, it overrides default_llm_url.
+    AgentInstance(const AgentConfig&  cfg,
+                  const std::string&  nos_server_url,
+                  const std::string&  default_llm_url = "http://localhost:8080",
+                  const std::string&  default_api_key = "");
+
+    // Run the agent with a user message. Returns the final text response.
+    // Throws std::runtime_error on LLM or MCP errors.
+    std::string run(const std::string& user_message);
+
+    // Same as run() but emits intermediate steps to stderr for debugging.
+    std::string run_verbose(const std::string& user_message);
+
+    const AgentConfig& config() const { return cfg_; }
+
+private:
+    AgentConfig  cfg_;
+    LLMClient    llm_;
+    std::string  nos_server_url_;
+    json         tools_schema_;   // OpenAI-format tool definitions (from nos-server)
+
+    // Fetch tool definitions from nos-server and build tools_schema_
+    void fetch_tools();
+
+    // Call a single tool on nos-server via MCP HTTP POST
+    json call_tool(const std::string& name, const json& arguments);
+
+    // Build OpenAI tool definition from an MCP tool description
+    static json mcp_tool_to_openai(const json& mcp_tool);
+
+    // Core loop shared by run() and run_verbose()
+    std::string run_loop(const std::string& user_message, bool verbose);
+};
