@@ -11,15 +11,24 @@ endif()
 
 find_package(Threads REQUIRED)
 
-# cpp-mcp: disable examples and tests to keep the build fast
-set(MCP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-# Override cpp-mcp's add_subdirectory(examples) — we patch via EXCLUDE_FROM_ALL
-add_subdirectory(third-party/cpp-mcp EXCLUDE_FROM_ALL)
+# ── cpp-mcp (vendored, MIT) ───────────────────────────────────────────────────
+# We define the target ourselves to avoid building examples/tests from upstream.
+set(CPP_MCP_DIR ${CMAKE_SOURCE_DIR}/third-party/cpp-mcp)
 
-# Expose cpp-mcp headers to all sub-targets
-include_directories(
-    third-party/cpp-mcp/include
-    third-party/cpp-mcp/common
+add_library(mcp STATIC
+    ${CPP_MCP_DIR}/src/mcp_message.cpp
+    ${CPP_MCP_DIR}/src/mcp_resource.cpp
+    ${CPP_MCP_DIR}/src/mcp_server.cpp
+    ${CPP_MCP_DIR}/src/mcp_tool.cpp
+    ${CPP_MCP_DIR}/src/mcp_sse_client.cpp
+    ${CPP_MCP_DIR}/src/mcp_stdio_client.cpp
 )
+
+target_include_directories(mcp PUBLIC
+    ${CPP_MCP_DIR}/include
+    ${CPP_MCP_DIR}/common
+)
+
+target_link_libraries(mcp PUBLIC Threads::Threads)
 
 add_subdirectory(src/nos-server)

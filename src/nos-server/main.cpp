@@ -40,14 +40,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    mcp::server::configuration conf;
-    conf.host    = host;
-    conf.port    = port;
-    conf.name    = "nos-server";
-    conf.version = "0.1.0";
-
-    mcp::server server(conf);
-    server.set_server_info("nos-server", "0.1.0");
+    mcp::server server(host, port, "nos-server", "0.1.0");
     server.set_capabilities({{"tools", mcp::json::object()}});
 
     // Register all OS tools
