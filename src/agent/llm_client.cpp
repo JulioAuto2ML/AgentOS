@@ -44,7 +44,10 @@
 //   }
 // =============================================================================
 
-#define CPPHTTPLIB_OPENSSL_SUPPORT
+// CPPHTTPLIB_OPENSSL_SUPPORT is defined globally via CMake (target_compile_definitions
+// on the mcp target) so that ALL translation units see the same httplib::Client layout.
+// Defining it here would cause a "redefined" warning and, more importantly, if it were
+// ever missing in one TU it would cause heap corruption (ODR violation).
 #include "llm_client.h"
 #include "httplib.h"
 #include <stdexcept>

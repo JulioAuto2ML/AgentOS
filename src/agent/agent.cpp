@@ -53,7 +53,7 @@ AgentInstance::AgentInstance(const AgentConfig&  cfg,
     : cfg_(cfg)
     , llm_(cfg.llm_url.empty() ? default_llm_url : cfg.llm_url,
            cfg.llm_api_key.empty() ? default_api_key : cfg.llm_api_key,
-           cfg.model == "default" ? "llama3.1" : cfg.model)
+           cfg.model)  // "default" is passed through; llama-server ignores the field
 {
     llm_.set_max_tokens(cfg.context_limit / 4);
 

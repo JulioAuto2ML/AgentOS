@@ -4,9 +4,8 @@ set(TARGET nos-agent-run)
 # Install with: sudo apt-get install -y libyaml-cpp-dev
 find_package(yaml-cpp REQUIRED)
 
-# OpenSSL is required for HTTPS (Groq, Anthropic, etc.)
-# Install with: sudo apt-get install -y libssl-dev
-find_package(OpenSSL REQUIRED)
+# Note: OpenSSL is NOT found here — it is already a PUBLIC dependency of the
+# `mcp` target (defined in the root CMakeLists.txt) and propagates automatically.
 
 # ── agent library (shared between nos-agent-run and nos-supervisor) ────────────
 add_library(agent_lib STATIC
@@ -22,10 +21,8 @@ target_include_directories(agent_lib PUBLIC
 )
 
 target_link_libraries(agent_lib PUBLIC
-    mcp              # vendored cpp-mcp (includes sse_client)
+    mcp              # vendored cpp-mcp; propagates OpenSSL + CPPHTTPLIB_OPENSSL_SUPPORT
     yaml-cpp
-    OpenSSL::SSL
-    OpenSSL::Crypto
     Threads::Threads
 )
 

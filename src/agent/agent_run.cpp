@@ -53,6 +53,7 @@ int main(int argc, char* argv[]) {
     const std::string yaml_path      = argv[1];
     const std::string llm_url        = getenv_or("NOS_LLM_URL",    "http://localhost:8080");
     const std::string llm_key        = getenv_or("NOS_LLM_KEY",    "");
+    const std::string llm_model      = getenv_or("NOS_LLM_MODEL",  "");  // empty = use agent YAML
     const std::string nos_server_url = getenv_or("NOS_SERVER_URL", "http://localhost:8888");
     const bool        verbose        = std::string(getenv_or("NOS_VERBOSE", "0")) == "1";
 
@@ -96,9 +97,16 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // NOS_LLM_MODEL overrides the model in the YAML (useful for testing different models)
+    if (!llm_model.empty()) cfg.model = llm_model;
+
+    // "default" means: let the server decide (llama-server ignores the field;
+    // for Groq you must set NOS_LLM_MODEL or put the model name in the YAML)
+    const std::string display_model = (cfg.model == "default") ? "(server default)" : cfg.model;
+
     std::cerr << "[nos-agent-run] Agent: " << cfg.name
               << " | LLM: " << llm_url
-              << " | Model: " << (cfg.model == "default" ? "llama3.1" : cfg.model)
+              << " | Model: " << display_model
               << "\n";
 
     try {
