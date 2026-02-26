@@ -22,6 +22,7 @@ target_include_directories(agent_lib PUBLIC
 )
 
 target_link_libraries(agent_lib PUBLIC
+    mcp              # vendored cpp-mcp (includes sse_client)
     yaml-cpp
     OpenSSL::SSL
     OpenSSL::Crypto

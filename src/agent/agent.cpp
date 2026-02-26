@@ -4,57 +4,37 @@
 //
 // Tool loop design:
 //
-//   1. On construction, fetch the list of tools from nos-server (tools/list).
-//      Filter to the agent's allowlist (if non-empty) and build the OpenAI
-//      tool schema array.
+//   1. On construction, connect to nos-server via MCP SSE session.
+//      The SSE client (mcp::sse_client) handles the /sse handshake and
+//      session management required by the MCP protocol before any
+//      tool calls can be made.
 //
-//   2. run_loop() builds the initial conversation:
+//   2. Fetch tool list via mcp::sse_client::get_tools(), filter to the
+//      agent's allowlist, and convert to OpenAI function schema format.
+//
+//   3. run_loop() builds the initial conversation:
 //        [system_prompt, user_message]
 //      then enters the loop:
 //
 //        a. Send messages + tools_schema to LLM → CompletionResponse
 //        b. If response has no tool calls → return response.content (done)
 //        c. For each tool call:
-//             - Call nos-server via MCP HTTP POST
+//             - Call nos-server via mcp_->call_tool(name, args)
 //             - Append assistant message (with tool_calls) to history
 //             - Append tool result message to history
 //        d. If step count >= max_steps → return error message
 //        e. Go to (a)
-//
-// MCP tool call (HTTP, no SSE session needed for single calls):
-//   POST /message?session_id=<agent-name>
-//   Body: JSON-RPC 2.0 tools/call request
-//   The server returns the result synchronously in the HTTP response body.
-//
-// Note: nos-server currently echoes the result directly in the POST response
-// body (not via SSE), which is why we can use a simple HTTP call here.
 // =============================================================================
 
 #include "agent.h"
-#include "httplib.h"
 #include <iostream>
 #include <stdexcept>
 #include <regex>
 
-// ── Constructor ───────────────────────────────────────────────────────────────
+// ── URL parsing ───────────────────────────────────────────────────────────────
 
-AgentInstance::AgentInstance(const AgentConfig&  cfg,
-                             const std::string&  nos_server_url,
-                             const std::string&  default_llm_url,
-                             const std::string&  default_api_key)
-    : cfg_(cfg)
-    , llm_(cfg.llm_url.empty() ? default_llm_url : cfg.llm_url,
-           cfg.llm_api_key.empty() ? default_api_key : cfg.llm_api_key,
-           cfg.model == "default" ? "llama3.1" : cfg.model)
-    , nos_server_url_(nos_server_url)
-{
-    llm_.set_max_tokens(cfg.context_limit / 4); // conservative: 1/4 of context for output
-    fetch_tools();
-}
-
-// ── URL parsing helpers ───────────────────────────────────────────────────────
-
-static std::pair<std::string, int> parse_host_port(const std::string& url) {
+static std::pair<std::string, int> parse_nos_url(const std::string& url) {
+    // Match http://host[:port] — HTTPS not needed for local nos-server
     std::regex re(R"(^https?://([^/:]+)(?::(\d+))?)");
     std::smatch m;
     if (!std::regex_search(url, m, re))
@@ -64,120 +44,81 @@ static std::pair<std::string, int> parse_host_port(const std::string& url) {
     return {host, port};
 }
 
-// ── MCP tool call ─────────────────────────────────────────────────────────────
+// ── Constructor / Destructor ──────────────────────────────────────────────────
 
-json AgentInstance::call_tool(const std::string& name, const json& arguments) {
-    auto [host, port] = parse_host_port(nos_server_url_);
-    httplib::Client cli(host, port);
-    cli.set_read_timeout(30);
+AgentInstance::AgentInstance(const AgentConfig&  cfg,
+                             const std::string&  nos_server_url,
+                             const std::string&  default_llm_url,
+                             const std::string&  default_api_key)
+    : cfg_(cfg)
+    , llm_(cfg.llm_url.empty() ? default_llm_url : cfg.llm_url,
+           cfg.llm_api_key.empty() ? default_api_key : cfg.llm_api_key,
+           cfg.model == "default" ? "llama3.1" : cfg.model)
+{
+    llm_.set_max_tokens(cfg.context_limit / 4);
 
-    const std::string session = "agent-" + cfg_.name;
-
-    json rpc = {
-        {"jsonrpc", "2.0"},
-        {"id",      1},
-        {"method",  "tools/call"},
-        {"params",  {{"name", name}, {"arguments", arguments}}}
-    };
-
-    auto result = cli.Post(
-        "/message?session_id=" + session,
-        rpc.dump(),
-        "application/json"
-    );
-
-    if (!result)
-        throw std::runtime_error("nos-server unreachable: " +
-            std::string(httplib::to_string(result.error())));
-
-    if (result->status != 200 && result->status != 202)
-        throw std::runtime_error("nos-server error " +
-            std::to_string(result->status) + ": " + result->body);
-
-    // Response may be empty (202 Accepted) — result comes via SSE.
-    // For simple single calls, nos-server echoes result in body.
-    if (result->body.empty()) return {{"result", "accepted"}};
-
-    try {
-        json resp = json::parse(result->body);
-        if (resp.contains("result"))
-            return resp["result"];
-        if (resp.contains("error"))
-            throw std::runtime_error("Tool error: " + resp["error"].dump());
-        return resp;
-    } catch (const json::exception& e) {
-        // Body might not be JSON (e.g. empty 202) — return raw
-        return {{"raw", result->body}};
-    }
+    auto [host, port] = parse_nos_url(nos_server_url);
+    connect_and_fetch_tools(host, port);
 }
 
-// ── Tool schema fetch ─────────────────────────────────────────────────────────
+AgentInstance::~AgentInstance() = default;
 
-json AgentInstance::mcp_tool_to_openai(const json& mcp_tool) {
-    // MCP tool format: {name, description, inputSchema: {type, properties, required}}
-    // OpenAI format:   {type: "function", function: {name, description, parameters}}
-    json params = mcp_tool.contains("inputSchema")
-        ? mcp_tool["inputSchema"]
+// ── MCP connection and tool schema ────────────────────────────────────────────
+
+json AgentInstance::mcp_tool_to_openai(const mcp::tool& t) {
+    // mcp::tool::to_json() returns {name, description, inputSchema: {...}}
+    // We need OpenAI format: {type: "function", function: {name, description, parameters}}
+    json tj = t.to_json();
+    json params = tj.contains("inputSchema")
+        ? tj["inputSchema"]
         : json{{"type", "object"}, {"properties", json::object()}};
 
     return {
         {"type", "function"},
         {"function", {
-            {"name",        mcp_tool["name"]},
-            {"description", mcp_tool.value("description", "")},
+            {"name",        t.name},
+            {"description", t.description},
             {"parameters",  params}
         }}
     };
 }
 
-void AgentInstance::fetch_tools() {
-    auto [host, port] = parse_host_port(nos_server_url_);
-    httplib::Client cli(host, port);
-    cli.set_read_timeout(10);
+void AgentInstance::connect_and_fetch_tools(const std::string& host, int port) {
+    // Create SSE client and establish MCP session
+    mcp_ = std::make_unique<mcp::sse_client>(host, port);
 
-    const std::string session = "agent-" + cfg_.name + "-init";
-    json rpc = {
-        {"jsonrpc", "2.0"},
-        {"id",      1},
-        {"method",  "tools/list"},
-        {"params",  json::object()}
-    };
-
-    auto result = cli.Post(
-        "/message?session_id=" + session,
-        rpc.dump(),
-        "application/json"
-    );
-
-    if (!result || (result->status != 200 && result->status != 202)) {
-        // nos-server not reachable — continue without tools
+    if (!mcp_->initialize("nos-agent-" + cfg_.name, "0.1.0")) {
+        // nos-server not reachable — proceed with empty tool list
+        // (agent can still work as a pure LLM without tools)
         tools_schema_ = json::array();
+        mcp_.reset();
         return;
     }
 
-    try {
-        json resp = json::parse(result->body);
-        json tools_list = resp.contains("result") && resp["result"].contains("tools")
-            ? resp["result"]["tools"]
-            : json::array();
+    // Get all tools from nos-server
+    std::vector<mcp::tool> all_tools = mcp_->get_tools();
 
-        tools_schema_ = json::array();
-        for (const auto& tool : tools_list) {
-            const std::string tool_name = tool["name"].get<std::string>();
-
-            // Apply allowlist filter
-            if (!cfg_.tools.empty()) {
-                bool allowed = false;
-                for (const auto& t : cfg_.tools)
-                    if (t == tool_name) { allowed = true; break; }
-                if (!allowed) continue;
-            }
-
-            tools_schema_.push_back(mcp_tool_to_openai(tool));
+    tools_schema_ = json::array();
+    for (const auto& tool : all_tools) {
+        // Apply allowlist: if cfg_.tools is non-empty, only include listed tools
+        if (!cfg_.tools.empty()) {
+            bool allowed = false;
+            for (const auto& allowed_name : cfg_.tools)
+                if (allowed_name == tool.name) { allowed = true; break; }
+            if (!allowed) continue;
         }
-    } catch (...) {
-        tools_schema_ = json::array(); // fallback
+        tools_schema_.push_back(mcp_tool_to_openai(tool));
     }
+}
+
+// ── Tool call ─────────────────────────────────────────────────────────────────
+
+json AgentInstance::call_tool(const std::string& name, const json& arguments) {
+    if (!mcp_)
+        throw std::runtime_error("No MCP session (nos-server unreachable)");
+
+    // mcp::sse_client::call_tool returns the raw MCP result JSON
+    return mcp_->call_tool(name, arguments);
 }
 
 // ── Core inference loop ───────────────────────────────────────────────────────
@@ -211,9 +152,7 @@ std::string AgentInstance::run_loop(const std::string& user_message, bool verbos
 
         // Build assistant message with tool_calls for history.
         // OpenAI requires: assistant message (with tool_calls array) BEFORE
-        // each tool result message. We store the tool_calls array directly
-        // in ChatMessage::tool_calls so build_messages_json serialises it
-        // correctly.
+        // each tool result message.
         json tc_arr = json::array();
         for (const auto& tc : resp.tool_calls) {
             tc_arr.push_back({
@@ -240,7 +179,7 @@ std::string AgentInstance::run_loop(const std::string& user_message, bool verbos
             std::string tool_result;
             try {
                 json result = call_tool(tc.name, tc.arguments);
-                // Extract text content if it's MCP format
+                // MCP result format: {content: [{type: "text", text: "..."}]}
                 if (result.contains("content") && result["content"].is_array()
                     && !result["content"].empty()) {
                     tool_result = result["content"][0].value("text", result.dump());
@@ -253,7 +192,8 @@ std::string AgentInstance::run_loop(const std::string& user_message, bool verbos
 
             if (verbose)
                 std::cerr << "[agent:" << cfg_.name << "] Tool result ("
-                          << tc.name << "): " << tool_result.substr(0, 120) << "...\n";
+                          << tc.name << "): "
+                          << tool_result.substr(0, 120) << "...\n";
 
             ChatMessage tool_msg;
             tool_msg.role         = "tool";

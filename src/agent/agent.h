@@ -22,8 +22,10 @@
 #pragma once
 #include "agent_config.h"
 #include "llm_client.h"
+#include "mcp_sse_client.h"
 #include <string>
 #include <vector>
+#include <memory>
 
 class AgentInstance {
 public:
@@ -33,6 +35,8 @@ public:
                   const std::string&  nos_server_url,
                   const std::string&  default_llm_url = "http://localhost:8080",
                   const std::string&  default_api_key = "");
+
+    ~AgentInstance();
 
     // Run the agent with a user message. Returns the final text response.
     // Throws std::runtime_error on LLM or MCP errors.
@@ -44,19 +48,19 @@ public:
     const AgentConfig& config() const { return cfg_; }
 
 private:
-    AgentConfig  cfg_;
-    LLMClient    llm_;
-    std::string  nos_server_url_;
-    json         tools_schema_;   // OpenAI-format tool definitions (from nos-server)
+    AgentConfig                   cfg_;
+    LLMClient                     llm_;
+    std::unique_ptr<mcp::sse_client> mcp_;  // MCP session with nos-server
+    json                          tools_schema_;   // OpenAI-format tool defs
 
-    // Fetch tool definitions from nos-server and build tools_schema_
-    void fetch_tools();
+    // Connect to nos-server, fetch tools, build tools_schema_
+    void connect_and_fetch_tools(const std::string& host, int port);
 
-    // Call a single tool on nos-server via MCP HTTP POST
+    // Call a single tool via the MCP session
     json call_tool(const std::string& name, const json& arguments);
 
-    // Build OpenAI tool definition from an MCP tool description
-    static json mcp_tool_to_openai(const json& mcp_tool);
+    // Convert mcp::tool to OpenAI function schema
+    static json mcp_tool_to_openai(const mcp::tool& t);
 
     // Core loop shared by run() and run_verbose()
     std::string run_loop(const std::string& user_message, bool verbose);
