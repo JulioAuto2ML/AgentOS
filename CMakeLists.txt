@@ -52,3 +52,4 @@ target_link_libraries(mcp PUBLIC
 add_subdirectory(src/nos-server)
 add_subdirectory(src/agent)
 add_subdirectory(src/nos-supervisor)
+add_subdirectory(src/nos-cli)
