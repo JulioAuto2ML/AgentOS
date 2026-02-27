@@ -4,7 +4,7 @@
 //
 // Tool loop design:
 //
-//   1. On construction, connect to nos-server via MCP SSE session.
+//   1. On construction, connect to aos-server via MCP SSE session.
 //      The SSE client (mcp::sse_client) handles the /sse handshake and
 //      session management required by the MCP protocol before any
 //      tool calls can be made.
@@ -19,7 +19,7 @@
 //        a. Send messages + tools_schema to LLM → CompletionResponse
 //        b. If response has no tool calls → return response.content (done)
 //        c. For each tool call:
-//             - Call nos-server via mcp_->call_tool(name, args)
+//             - Call aos-server via mcp_->call_tool(name, args)
 //             - Append assistant message (with tool_calls) to history
 //             - Append tool result message to history
 //        d. If step count >= max_steps → return error message
@@ -34,11 +34,11 @@
 // ── URL parsing ───────────────────────────────────────────────────────────────
 
 static std::pair<std::string, int> parse_nos_url(const std::string& url) {
-    // Match http://host[:port] — HTTPS not needed for local nos-server
+    // Match http://host[:port] — HTTPS not needed for local aos-server
     std::regex re(R"(^https?://([^/:]+)(?::(\d+))?)");
     std::smatch m;
     if (!std::regex_search(url, m, re))
-        throw std::runtime_error("Invalid nos-server URL: " + url);
+        throw std::runtime_error("Invalid aos-server URL: " + url);
     std::string host = m[1].str();
     int port = m[2].matched ? std::stoi(m[2].str()) : 8888;
     return {host, port};
@@ -47,7 +47,7 @@ static std::pair<std::string, int> parse_nos_url(const std::string& url) {
 // ── Constructor / Destructor ──────────────────────────────────────────────────
 
 AgentInstance::AgentInstance(const AgentConfig&  cfg,
-                             const std::string&  nos_server_url,
+                             const std::string&  aos_server_url,
                              const std::string&  default_llm_url,
                              const std::string&  default_api_key)
     : cfg_(cfg)
@@ -57,7 +57,7 @@ AgentInstance::AgentInstance(const AgentConfig&  cfg,
 {
     llm_.set_max_tokens(cfg.context_limit / 4);
 
-    auto [host, port] = parse_nos_url(nos_server_url);
+    auto [host, port] = parse_nos_url(aos_server_url);
     connect_and_fetch_tools(host, port);
 }
 
@@ -87,15 +87,15 @@ void AgentInstance::connect_and_fetch_tools(const std::string& host, int port) {
     // Create SSE client and establish MCP session
     mcp_ = std::make_unique<mcp::sse_client>(host, port);
 
-    if (!mcp_->initialize("nos-agent-" + cfg_.name, "0.1.0")) {
-        // nos-server not reachable — proceed with empty tool list
+    if (!mcp_->initialize("aos-agent-" + cfg_.name, "0.1.0")) {
+        // aos-server not reachable — proceed with empty tool list
         // (agent can still work as a pure LLM without tools)
         tools_schema_ = json::array();
         mcp_.reset();
         return;
     }
 
-    // Get all tools from nos-server
+    // Get all tools from aos-server
     std::vector<mcp::tool> all_tools = mcp_->get_tools();
 
     tools_schema_ = json::array();
@@ -115,7 +115,7 @@ void AgentInstance::connect_and_fetch_tools(const std::string& host, int port) {
 
 json AgentInstance::call_tool(const std::string& name, const json& arguments) {
     if (!mcp_)
-        throw std::runtime_error("No MCP session (nos-server unreachable)");
+        throw std::runtime_error("No MCP session (aos-server unreachable)");
 
     // mcp::sse_client::call_tool returns the raw MCP result JSON
     return mcp_->call_tool(name, arguments);

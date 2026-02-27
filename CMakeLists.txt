@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(NeuralOS VERSION 0.1.0 LANGUAGES CXX)
+project(AgentOS VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,7 +24,7 @@ find_package(OpenSSL REQUIRED)
 # another without, httplib::Client has different class layouts → ODR violation
 # → heap corruption at runtime (malloc: invalid size).
 # We set it here on the mcp target so it propagates (PUBLIC) to every target
-# that links against mcp, including nos-server and agent_lib.
+# that links against mcp, including aos-server and agent_lib.
 set(CPP_MCP_DIR ${CMAKE_SOURCE_DIR}/third-party/cpp-mcp)
 
 add_library(mcp STATIC
@@ -49,7 +49,7 @@ target_link_libraries(mcp PUBLIC
     OpenSSL::Crypto
 )
 
-add_subdirectory(src/nos-server)
+add_subdirectory(src/aos-server)
 add_subdirectory(src/agent)
-add_subdirectory(src/nos-supervisor)
-add_subdirectory(src/nos-cli)
+add_subdirectory(src/aos-supervisor)
+add_subdirectory(src/aos-cli)

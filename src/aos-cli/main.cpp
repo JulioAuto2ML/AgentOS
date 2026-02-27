@@ -1,9 +1,9 @@
 // =============================================================================
-// src/nos-cli/main.cpp — nos: the NeuralOS command-line interface
+// src/aos-cli/main.cpp — nos: the AgentOS command-line interface
 // =============================================================================
 //
-// Central CLI for interacting with a running NeuralOS stack
-// (nos-server + nos-supervisor).
+// Central CLI for interacting with a running AgentOS stack
+// (aos-server + aos-supervisor).
 //
 // Usage:
 //   nos <command> [args...]
@@ -11,21 +11,21 @@
 // Commands:
 //   agents              List all loaded agents with status
 //   run <agent> <msg>   Run an agent with a message
-//   ask <msg>           Run the default agent (NOS_DEFAULT_AGENT or "sysmonitor")
+//   ask <msg>           Run the default agent (AOS_DEFAULT_AGENT or "sysmonitor")
 //   build <description> Create a new agent from a description (builder agent)
 //   reload              Reload agents from disk
-//   server              Show nos-server tool list (via nos-server health)
+//   server              Show aos-server tool list (via aos-server health)
 //   status              Show full stack status
 //
 // Environment:
-//   NOS_SUPERVISOR_URL   (default: http://localhost:8889)
-//   NOS_SERVER_URL       (default: http://localhost:8888)
-//   NOS_DEFAULT_AGENT    (default: sysmonitor)
-//   NOS_LLM_URL          (forwarded to nos-agent-run / nos-builder)
-//   NOS_LLM_KEY          (forwarded)
+//   AOS_SUPERVISOR_URL   (default: http://localhost:8889)
+//   AOS_SERVER_URL       (default: http://localhost:8888)
+//   AOS_DEFAULT_AGENT    (default: sysmonitor)
+//   AOS_LLM_URL          (forwarded to aos-agent-run / aos-builder)
+//   AOS_LLM_KEY          (forwarded)
 //
-// All commands communicate with nos-supervisor via HTTP.
-// nos-supervisor must be running (nos-supervisor &).
+// All commands communicate with aos-supervisor via HTTP.
+// aos-supervisor must be running (aos-supervisor &).
 // =============================================================================
 
 #include "httplib.h"
@@ -145,12 +145,12 @@ static int cmd_status(const std::string& sup_url, const std::string& srv_url) {
     // Supervisor health
     try {
         auto sup = http_get(sup_url, "/health");
-        std::cout << "nos-supervisor  OK  (" << sup["agents"].get<int>() << " agents)\n";
+        std::cout << "aos-supervisor  OK  (" << sup["agents"].get<int>() << " agents)\n";
     } catch (...) {
-        std::cout << "nos-supervisor  UNREACHABLE  (" << sup_url << ")\n";
+        std::cout << "aos-supervisor  UNREACHABLE  (" << sup_url << ")\n";
     }
 
-    // nos-server health (MCP initialize)
+    // aos-server health (MCP initialize)
     try {
         // We just check if the server responds to an HTTP GET on /sse (MCP endpoint)
         auto [host, port] = parse_url(srv_url);
@@ -158,16 +158,16 @@ static int cmd_status(const std::string& sup_url, const std::string& srv_url) {
         cli.set_read_timeout(3);
         auto res = cli.Get("/sse");
         // /sse returns 200 or starts streaming — either way the server is up
-        std::cout << "nos-server      OK  (" << srv_url << ")\n";
+        std::cout << "aos-server      OK  (" << srv_url << ")\n";
     } catch (...) {
-        std::cout << "nos-server      UNREACHABLE  (" << srv_url << ")\n";
+        std::cout << "aos-server      UNREACHABLE  (" << srv_url << ")\n";
     }
 
     return 0;
 }
 
 static void print_help(const char* prog) {
-    std::cerr << "NeuralOS CLI\n\n"
+    std::cerr << "AgentOS CLI\n\n"
               << "Usage: " << prog << " <command> [args]\n\n"
               << "Commands:\n"
               << "  agents                   List loaded agents\n"
@@ -176,16 +176,16 @@ static void print_help(const char* prog) {
               << "  reload                   Reload agents from disk\n"
               << "  status                   Show stack health\n\n"
               << "Environment:\n"
-              << "  NOS_SUPERVISOR_URL  (default: http://localhost:8889)\n"
-              << "  NOS_DEFAULT_AGENT   (default: sysmonitor)\n";
+              << "  AOS_SUPERVISOR_URL  (default: http://localhost:8889)\n"
+              << "  AOS_DEFAULT_AGENT   (default: sysmonitor)\n";
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 int main(int argc, char* argv[]) {
-    const std::string sup_url = getenv_or("NOS_SUPERVISOR_URL", "http://localhost:8889");
-    const std::string srv_url = getenv_or("NOS_SERVER_URL",     "http://localhost:8888");
-    const std::string def_agent = getenv_or("NOS_DEFAULT_AGENT", "sysmonitor");
+    const std::string sup_url = getenv_or("AOS_SUPERVISOR_URL", "http://localhost:8889");
+    const std::string srv_url = getenv_or("AOS_SERVER_URL",     "http://localhost:8888");
+    const std::string def_agent = getenv_or("AOS_DEFAULT_AGENT", "sysmonitor");
 
     if (argc < 2) { print_help(argv[0]); return 1; }
 

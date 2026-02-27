@@ -1,4 +1,4 @@
-set(TARGET nos-server)
+set(TARGET aos-server)
 
 add_executable(${TARGET}
     main.cpp
@@ -18,9 +18,9 @@ target_include_directories(${TARGET} PRIVATE
 
 target_link_libraries(${TARGET} PRIVATE mcp Threads::Threads)
 
-# nos-server only targets Linux
+# aos-server only targets Linux
 if(NOT UNIX)
-    message(FATAL_ERROR "nos-server requires a Linux/POSIX environment")
+    message(FATAL_ERROR "aos-server requires a Linux/POSIX environment")
 endif()
 
 install(TARGETS ${TARGET} DESTINATION bin)

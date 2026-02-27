@@ -1,8 +1,8 @@
 // =============================================================================
-// src/nos-supervisor/supervisor.h — NeuralOS Agent Supervisor
+// src/aos-supervisor/supervisor.h — AgentOS Agent Supervisor
 // =============================================================================
 //
-// nos-supervisor is the central process manager for NeuralOS agents. It plays
+// aos-supervisor is the central process manager for AgentOS agents. It plays
 // the role that systemd plays for services, but for LLM agents.
 //
 // Responsibilities:
@@ -11,7 +11,7 @@
 //   - Accept run requests via HTTP API and dispatch them to agents
 //   - Enforce per-agent concurrency (one active run at a time per agent)
 //   - Priority queue: realtime > high > normal > low
-//   - Expose a REST API consumed by nos-cli and external tools
+//   - Expose a REST API consumed by aos-cli and external tools
 //
 // HTTP API (all JSON):
 //   GET  /agents                  → list all agents with status
@@ -75,7 +75,7 @@ struct AgentInfo {
 class Supervisor {
 public:
     Supervisor(const std::string& agents_dir,
-               const std::string& nos_server_url,
+               const std::string& aos_server_url,
                const std::string& default_llm_url,
                const std::string& default_api_key);
 
@@ -108,7 +108,7 @@ public:
 
 private:
     std::string agents_dir_;
-    std::string nos_server_url_;
+    std::string aos_server_url_;
     std::string default_llm_url_;
     std::string default_api_key_;
 

@@ -6,12 +6,12 @@
 # reachable and the agent pipeline works end-to-end.
 #
 # Test:
-#   nos-agent-run agents/hello.yaml "Who are you and what can you do?"
+#   aos-agent-run agents/hello.yaml "Who are you and what can you do?"
 
 name: hello
 description: Minimal agent for testing — no tools, just LLM
 
-model: default     # uses NOS_LLM_URL default model
+model: default     # uses AOS_LLM_URL default model
 tools: []          # no tools — pure LLM conversation
 
 priority: low
@@ -19,10 +19,10 @@ context_limit: 2048
 max_steps: 1       # no tool calls expected, so 1 step is enough
 
 system_prompt: |
-  You are a NeuralOS agent. NeuralOS is an experimental Linux-based OS that
+  You are a AgentOS agent. AgentOS is an experimental Linux-based OS that
   makes LLM agents first-class citizens of the operating system.
 
-  You are running as a named, isolated agent process managed by nos-supervisor.
+  You are running as a named, isolated agent process managed by aos-supervisor.
   Other agents may have access to OS tools like reading files, running commands,
   or checking system metrics — but you are a basic hello-world agent with no tools.
 

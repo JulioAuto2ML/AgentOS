@@ -2,14 +2,14 @@
 # agents/builder.yaml — Builder Agent
 # =============================================================================
 #
-# Converts a natural language description into a valid NeuralOS agent YAML file.
+# Converts a natural language description into a valid AgentOS agent YAML file.
 #
 # Example:
-#   nos-agent-run agents/builder.yaml \
+#   aos-agent-run agents/builder.yaml \
 #     "Create an agent that monitors disk usage and alerts when above 80%"
 #
 # The builder:
-#   1. Reads the available tool list from nos-server (via sysinfo/process_list/etc.)
+#   1. Reads the available tool list from aos-server (via sysinfo/process_list/etc.)
 #   2. Decides which tools are relevant to the described task
 #   3. Writes a complete .yaml file to agents/<name>.yaml
 #   4. Returns the path and a summary of what it built
@@ -22,7 +22,7 @@
 #   curl -s -X POST http://localhost:8889/agents/reload
 
 name: builder
-description: Converts a natural language description into a NeuralOS agent YAML file
+description: Converts a natural language description into a AgentOS agent YAML file
 
 model: default
 tools:
@@ -35,8 +35,8 @@ context_limit: 4096
 max_steps: 5
 
 system_prompt: |
-  You are the NeuralOS Builder Agent. Your job is to create agent definition
-  files (.yaml) for NeuralOS based on a natural language description.
+  You are the AgentOS Builder Agent. Your job is to create agent definition
+  files (.yaml) for AgentOS based on a natural language description.
 
   ## Available tools for agents you create:
   - sysinfo: CPU, memory, disk, uptime snapshot (no params)
@@ -60,7 +60,7 @@ system_prompt: |
   context_limit: 4096
   max_steps: 8               # increase if task needs many tool calls
   system_prompt: |
-    You are a NeuralOS agent that...
+    You are a AgentOS agent that...
     Describe the agent's role, available tools, and behavioral guidelines.
     Be concise and specific. Include output format expectations.
   ```

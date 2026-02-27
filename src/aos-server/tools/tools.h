@@ -1,5 +1,5 @@
 // =============================================================================
-// tools/tools.h — Tool registration declarations for nos-server
+// tools/tools.h — Tool registration declarations for aos-server
 // =============================================================================
 //
 // Each register_*() function adds one or more MCP tools to the server.
@@ -8,7 +8,7 @@
 // To add a new tool:
 //   1. Create tools/mytool.cpp with a static handler function and a
 //      register_mytool() function following the pattern in the existing files.
-//   2. Add the .cpp to src/nos-server/CMakeLists.txt.
+//   2. Add the .cpp to src/aos-server/CMakeLists.txt.
 //   3. Declare register_mytool() here and call it from main.cpp.
 // =============================================================================
 

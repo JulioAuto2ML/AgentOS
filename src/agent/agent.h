@@ -5,12 +5,12 @@
 // An AgentInstance ties together:
 //   - AgentConfig (from YAML): name, model, tools allowlist, system prompt
 //   - LLMClient: sends chat completions to the configured LLM backend
-//   - MCP tool loop: calls nos-server tools and feeds results back to the LLM
+//   - MCP tool loop: calls aos-server tools and feeds results back to the LLM
 //
 // Typical usage:
 //
 //   AgentConfig cfg = AgentConfig::from_file("agents/sysmonitor.yaml");
-//   AgentInstance agent(cfg, "http://localhost:8888");  // nos-server URL
+//   AgentInstance agent(cfg, "http://localhost:8888");  // aos-server URL
 //   std::string answer = agent.run("What processes are using the most RAM?");
 //   std::cout << answer << "\n";
 //
@@ -29,10 +29,10 @@
 
 class AgentInstance {
 public:
-    // nos_server_url: base URL of nos-server, e.g. "http://localhost:8888"
+    // aos_server_url: base URL of aos-server, e.g. "http://localhost:8888"
     // If llm_url is set in cfg, it overrides default_llm_url.
     AgentInstance(const AgentConfig&  cfg,
-                  const std::string&  nos_server_url,
+                  const std::string&  aos_server_url,
                   const std::string&  default_llm_url = "http://localhost:8080",
                   const std::string&  default_api_key = "");
 
@@ -50,10 +50,10 @@ public:
 private:
     AgentConfig                   cfg_;
     LLMClient                     llm_;
-    std::unique_ptr<mcp::sse_client> mcp_;  // MCP session with nos-server
+    std::unique_ptr<mcp::sse_client> mcp_;  // MCP session with aos-server
     json                          tools_schema_;   // OpenAI-format tool defs
 
-    // Connect to nos-server, fetch tools, build tools_schema_
+    // Connect to aos-server, fetch tools, build tools_schema_
     void connect_and_fetch_tools(const std::string& host, int port);
 
     // Call a single tool via the MCP session

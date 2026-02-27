@@ -1,4 +1,4 @@
-set(TARGET nos-supervisor)
+set(TARGET aos-supervisor)
 
 add_executable(${TARGET}
     main.cpp
@@ -17,15 +17,15 @@ target_link_libraries(${TARGET} PRIVATE agent_lib)
 
 install(TARGETS ${TARGET} DESTINATION bin)
 
-# ── nos-builder CLI ───────────────────────────────────────────────────────────
-add_executable(nos-builder builder_main.cpp)
+# ── aos-builder CLI ───────────────────────────────────────────────────────────
+add_executable(aos-builder builder_main.cpp)
 
-target_include_directories(nos-builder PRIVATE
+target_include_directories(aos-builder PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/src/agent
     ${CMAKE_SOURCE_DIR}/third-party/cpp-mcp/include
     ${CMAKE_SOURCE_DIR}/third-party/cpp-mcp/common
 )
 
-target_link_libraries(nos-builder PRIVATE agent_lib)
-install(TARGETS nos-builder DESTINATION bin)
+target_link_libraries(aos-builder PRIVATE agent_lib)
+install(TARGETS aos-builder DESTINATION bin)

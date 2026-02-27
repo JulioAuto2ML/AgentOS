@@ -18,7 +18,7 @@ struct AgentConfig {
     std::string llm_url;
     std::string llm_api_key;
 
-    // Which nos-server tools this agent is allowed to call.
+    // Which aos-server tools this agent is allowed to call.
     // Empty list = all available tools.
     std::vector<std::string> tools;
 

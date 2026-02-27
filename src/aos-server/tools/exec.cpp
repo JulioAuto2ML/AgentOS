@@ -15,7 +15,7 @@
 //   - exit_code 124 is timeout(1)'s sentinel for "killed due to timeout".
 //
 // Security note:
-//   nos-server runs with the same privileges as the user who starts it.
+//   aos-server runs with the same privileges as the user who starts it.
 //   Restrict agent tool lists in agent YAML to avoid unwanted exec calls.
 // =============================================================================
 

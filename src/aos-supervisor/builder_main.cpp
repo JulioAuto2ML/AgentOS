@@ -1,15 +1,15 @@
 // =============================================================================
-// src/nos-supervisor/builder_main.cpp — nos-builder CLI
+// src/aos-supervisor/builder_main.cpp — aos-builder CLI
 // =============================================================================
 //
-// A thin wrapper around nos-agent-run that always uses the builder agent.
+// A thin wrapper around aos-agent-run that always uses the builder agent.
 // Provides friendlier UX: shows the generated YAML after creation.
 //
 // Usage:
-//   nos-builder "Create an agent that monitors disk usage"
-//   nos-builder --verbose "Create a network monitor agent"
+//   aos-builder "Create an agent that monitors disk usage"
+//   aos-builder --verbose "Create a network monitor agent"
 //
-// Environment: same as nos-agent-run (NOS_LLM_URL, NOS_LLM_KEY, etc.)
+// Environment: same as aos-agent-run (AOS_LLM_URL, AOS_LLM_KEY, etc.)
 //
 // Internally: calls the builder agent defined in agents/builder.yaml,
 // which uses write_file to create the new agent YAML.
@@ -64,11 +64,11 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    const std::string llm_url     = getenv_or("NOS_LLM_URL",    "http://localhost:8080");
-    const std::string llm_key     = getenv_or("NOS_LLM_KEY",    "");
-    const std::string llm_model   = getenv_or("NOS_LLM_MODEL",  "");
-    const std::string server_url  = getenv_or("NOS_SERVER_URL", "http://localhost:8888");
-    const std::string agents_dir  = getenv_or("NOS_AGENTS_DIR", "./agents");
+    const std::string llm_url     = getenv_or("AOS_LLM_URL",    "http://localhost:8080");
+    const std::string llm_key     = getenv_or("AOS_LLM_KEY",    "");
+    const std::string llm_model   = getenv_or("AOS_LLM_MODEL",  "");
+    const std::string server_url  = getenv_or("AOS_SERVER_URL", "http://localhost:8888");
+    const std::string agents_dir  = getenv_or("AOS_AGENTS_DIR", "./agents");
 
     // Snapshot of existing agents/ files before builder runs
     std::set<std::string> before;
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
 
     if (!llm_model.empty()) cfg.model = llm_model;
 
-    std::cerr << "[nos-builder] Asking builder agent to create: \""
+    std::cerr << "[aos-builder] Asking builder agent to create: \""
               << description << "\"\n";
 
     // Run the builder agent
@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (!new_files.empty()) {
-        std::cerr << "\n[nos-builder] To activate: "
+        std::cerr << "\n[aos-builder] To activate: "
                   << "curl -s -X POST http://localhost:8889/agents/reload "
                   << "-H 'Content-Type: application/json' -d '{}'\n";
     }

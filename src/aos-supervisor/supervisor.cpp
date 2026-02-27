@@ -1,5 +1,5 @@
 // =============================================================================
-// src/nos-supervisor/supervisor.cpp
+// src/aos-supervisor/supervisor.cpp
 // =============================================================================
 
 #include "supervisor.h"
@@ -12,11 +12,11 @@ namespace fs = std::filesystem;
 // ── Constructor ───────────────────────────────────────────────────────────────
 
 Supervisor::Supervisor(const std::string& agents_dir,
-                       const std::string& nos_server_url,
+                       const std::string& aos_server_url,
                        const std::string& default_llm_url,
                        const std::string& default_api_key)
     : agents_dir_(agents_dir)
-    , nos_server_url_(nos_server_url)
+    , aos_server_url_(aos_server_url)
     , default_llm_url_(default_llm_url)
     , default_api_key_(default_api_key)
 {}
@@ -66,7 +66,7 @@ void Supervisor::ensure_instance(AgentInfo& info) {
     if (!info.instance) {
         info.instance = std::make_unique<AgentInstance>(
             info.config,
-            nos_server_url_,
+            aos_server_url_,
             info.config.llm_url.empty() ? default_llm_url_ : info.config.llm_url,
             info.config.llm_api_key.empty() ? default_api_key_ : info.config.llm_api_key
         );

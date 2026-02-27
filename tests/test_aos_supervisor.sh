@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================================
-# tests/test_nos_supervisor.sh — Integration tests for nos-supervisor
+# tests/test_nos_supervisor.sh — Integration tests for aos-supervisor
 # =============================================================================
 # Tests the REST API without making actual LLM calls (agent run endpoints
 # are tested separately since they need a live LLM backend).
 #
-# Run with nos-server also running on :8888, then:
+# Run with aos-server also running on :8888, then:
 #   bash tests/test_nos_supervisor.sh
 
 set -euo pipefail
 
 SUPERVISOR_PORT=18889
-BIN=./build/src/nos-supervisor/nos-supervisor
+BIN=./build/src/aos-supervisor/aos-supervisor
 PASS=0; FAIL=0
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; NC='\033[0m'
@@ -20,23 +20,23 @@ pass() { echo -e "${GREEN}[PASS]${NC} $1"; PASS=$((PASS+1)); }
 fail() { echo -e "${RED}[FAIL]${NC} $1"; FAIL=$((FAIL+1)); }
 
 echo "════════════════════════════════════════"
-echo "  NeuralOS nos-supervisor — Tests"
+echo "  AgentOS aos-supervisor — Tests"
 echo "════════════════════════════════════════"
 echo ""
 
 # ── Start supervisor ──────────────────────────────────────────────────────────
-echo "[INFO] Starting nos-supervisor on port $SUPERVISOR_PORT..."
+echo "[INFO] Starting aos-supervisor on port $SUPERVISOR_PORT..."
 $BIN --port $SUPERVISOR_PORT --agents-dir ./agents \
-     NOS_LLM_URL=http://localhost:8080 2>/dev/null &
+     AOS_LLM_URL=http://localhost:8080 2>/dev/null &
 SUP_PID=$!
 sleep 1
 
 # Check it's running
 if ! kill -0 $SUP_PID 2>/dev/null; then
-    echo "[ERROR] nos-supervisor failed to start"
+    echo "[ERROR] aos-supervisor failed to start"
     exit 1
 fi
-echo "[INFO] nos-supervisor PID=$SUP_PID"
+echo "[INFO] aos-supervisor PID=$SUP_PID"
 echo ""
 
 BASE="http://localhost:$SUPERVISOR_PORT"
@@ -115,7 +115,7 @@ fi
 echo ""
 kill $SUP_PID 2>/dev/null
 wait $SUP_PID 2>/dev/null || true
-echo "[INFO] nos-supervisor stopped"
+echo "[INFO] aos-supervisor stopped"
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""

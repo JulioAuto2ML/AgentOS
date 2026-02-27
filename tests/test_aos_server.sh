@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 # =============================================================================
-# tests/test_nos_server.sh — Test de integración para nos-server
+# tests/test_nos_server.sh — Test de integración para aos-server
 # =============================================================================
 #
-# Este script levanta nos-server, llama a cada tool via HTTP y verifica que
+# Este script levanta aos-server, llama a cada tool via HTTP y verifica que
 # las respuestas tengan el formato correcto. No necesita un LLM — testea
 # el servidor MCP directamente con curl.
 #
 # USO:
-#   cd ~/Documents/GitHub/NeuralOS
+#   cd ~/Documents/GitHub/AgentOS
 #   bash tests/test_nos_server.sh
 #
 # REQUISITOS:
-#   - cmake --build build --target nos-server (ya compilado)
+#   - cmake --build build --target aos-server (ya compilado)
 #   - curl, python3 (para pretty-print del JSON)
 # =============================================================================
 
 set -euo pipefail
 
-BINARY="./build/src/nos-server/nos-server"
+BINARY="./build/src/aos-server/aos-server"
 HOST="localhost"
 PORT="18888"   # puerto alternativo para no chocar con una instancia real
 BASE_URL="http://${HOST}:${PORT}"
@@ -35,18 +35,18 @@ FAILURES=0
 # ── verificar que el binario existe ───────────────────────────────────────────
 if [[ ! -f "$BINARY" ]]; then
     echo -e "${RED}ERROR:${NC} Binario no encontrado: $BINARY"
-    echo "Compilá primero con: cmake --build build --target nos-server"
+    echo "Compilá primero con: cmake --build build --target aos-server"
     exit 1
 fi
 
-# ── levantar nos-server en background ─────────────────────────────────────────
-info "Iniciando nos-server en puerto $PORT..."
+# ── levantar aos-server en background ─────────────────────────────────────────
+info "Iniciando aos-server en puerto $PORT..."
 "$BINARY" --port "$PORT" &
 SERVER_PID=$!
 
 # Limpiar al salir (Ctrl+C o fin del script)
 cleanup() {
-    info "Deteniendo nos-server (PID $SERVER_PID)..."
+    info "Deteniendo aos-server (PID $SERVER_PID)..."
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
 }
@@ -55,10 +55,10 @@ trap cleanup EXIT
 # Esperar que levante
 sleep 1
 if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-    fail "nos-server no pudo iniciarse"
+    fail "aos-server no pudo iniciarse"
     exit 1
 fi
-pass "nos-server iniciado (PID $SERVER_PID)"
+pass "aos-server iniciado (PID $SERVER_PID)"
 
 # ── helper: llamar una tool por MCP ───────────────────────────────────────────
 # El protocolo MCP requiere primero abrir una sesión SSE, pero podemos
@@ -90,7 +90,7 @@ has_field() {
 
 echo ""
 echo "════════════════════════════════════════"
-echo "  NeuralOS nos-server — Tests Fase 1"
+echo "  AgentOS aos-server — Tests Fase 1"
 echo "════════════════════════════════════════"
 echo ""
 
@@ -149,10 +149,10 @@ echo ""
 # ── TEST 4: write_file + read_file ────────────────────────────────────────────
 info "Test 4: write_file + read_file (round-trip)"
 TMP_FILE="/tmp/nos_test_$$.txt"
-resp=$(call_tool "write_file" "{\"path\":\"${TMP_FILE}\",\"content\":\"NeuralOS test OK\"}")
+resp=$(call_tool "write_file" "{\"path\":\"${TMP_FILE}\",\"content\":\"AgentOS test OK\"}")
 if has_field "$resp" "bytes_written"; then
     resp2=$(call_tool "read_file" "{\"path\":\"${TMP_FILE}\"}")
-    if has_field "$resp2" "NeuralOS test OK"; then
+    if has_field "$resp2" "AgentOS test OK"; then
         pass "write_file + read_file → round-trip correcto"
     else
         fail "read_file no devolvió el contenido escrito"
@@ -166,9 +166,9 @@ echo ""
 
 # ── TEST 5: exec ───────────────────────────────────────────────────────────────
 info "Test 5: exec (echo hello)"
-resp=$(call_tool "exec" '{"command":"echo hello NeuralOS"}')
-if has_field "$resp" "stdout" && has_field "$resp" "hello NeuralOS"; then
-    pass "exec → stdout contiene 'hello NeuralOS'"
+resp=$(call_tool "exec" '{"command":"echo hello AgentOS"}')
+if has_field "$resp" "stdout" && has_field "$resp" "hello AgentOS"; then
+    pass "exec → stdout contiene 'hello AgentOS'"
 else
     fail "exec → respuesta inesperada: $resp"
 fi
