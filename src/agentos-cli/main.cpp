@@ -9,13 +9,14 @@
 //   agentos <command> [args...]
 //
 // Commands:
+//   start               Start agentos-server + agentos-supervisor as background daemons
+//   stop                Stop both daemons (SIGTERM, then SIGKILL if needed)
+//   restart             Stop then start both daemons
+//   status              Show full stack status (reachability check)
 //   agents              List all loaded agents with status
 //   run <agent> <msg>   Run an agent with a message
 //   ask <msg>           Run the default agent (AGENTOS_DEFAULT_AGENT or "sysmonitor")
-//   build <description> Create a new agent from a description (builder agent)
 //   reload              Reload agents from disk
-//   server              Show agentos-server tool list (via agentos-server health)
-//   status              Show full stack status
 //
 // Environment:
 //   AGENTOS_SUPERVISOR_URL   (default: http://localhost:8889)
@@ -31,10 +32,21 @@
 #include "httplib.h"
 #include "json.hpp"
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <regex>
 #include <cstdlib>
 #include <iomanip>
+#include <thread>
+#include <chrono>
+// POSIX (Linux)
+#include <unistd.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <sys/wait.h>
+#include <cerrno>
+#include <cstring>
 
 using json = nlohmann::json;
 
@@ -166,15 +178,169 @@ static int cmd_status(const std::string& sup_url, const std::string& srv_url) {
     return 0;
 }
 
+// ── Daemon management ─────────────────────────────────────────────────────────
+
+// Return the directory that contains the currently-running agentos binary.
+// Used to find sibling binaries (agentos-server, agentos-supervisor).
+static std::string self_dir() {
+    char buf[PATH_MAX] = {};
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len <= 0) return ".";
+    std::string path(buf, len);
+    auto pos = path.rfind('/');
+    return (pos == std::string::npos) ? "." : path.substr(0, pos);
+}
+
+static std::string pid_path(const std::string& name) {
+    return "/tmp/agentos-" + name + ".pid";
+}
+
+static std::string log_path(const std::string& name) {
+    return "/tmp/agentos-" + name + ".log";
+}
+
+static pid_t read_pid(const std::string& name) {
+    std::ifstream f(pid_path(name));
+    pid_t pid = 0;
+    if (f) f >> pid;
+    return pid;
+}
+
+static void write_pid(const std::string& name, pid_t pid) {
+    std::ofstream f(pid_path(name));
+    f << pid << "\n";
+}
+
+static bool process_alive(pid_t pid) {
+    return pid > 0 && (kill(pid, 0) == 0);
+}
+
+// Fork the given binary into a background daemon.
+// stdout/stderr are redirected to log_path(name).
+// Returns the child PID, or throws on error.
+static pid_t launch_daemon(const std::string& binary, const std::string& name,
+                            const std::vector<std::string>& extra_args = {}) {
+    pid_t pid = fork();
+    if (pid < 0)
+        throw std::runtime_error(std::string("fork failed: ") + strerror(errno));
+
+    if (pid == 0) {
+        // Child: new session, redirect I/O to log file, exec binary
+        setsid();
+
+        int devnull = open("/dev/null", O_RDONLY);
+        if (devnull >= 0) { dup2(devnull, STDIN_FILENO); close(devnull); }
+
+        int logfd = open(log_path(name).c_str(),
+                         O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if (logfd >= 0) {
+            dup2(logfd, STDOUT_FILENO);
+            dup2(logfd, STDERR_FILENO);
+            close(logfd);
+        }
+
+        // Build argv
+        std::vector<std::string> args_str = {binary};
+        for (const auto& a : extra_args) args_str.push_back(a);
+        std::vector<char*> argv_ptrs;
+        for (auto& s : args_str) argv_ptrs.push_back(s.data());
+        argv_ptrs.push_back(nullptr);
+
+        execv(binary.c_str(), argv_ptrs.data());
+        _exit(1);
+    }
+
+    return pid;
+}
+
+// Stop a daemon by name. Returns true if process was found and signalled.
+static bool stop_daemon(const std::string& name) {
+    pid_t pid = read_pid(name);
+    if (!process_alive(pid)) {
+        std::remove(pid_path(name).c_str());
+        return false;
+    }
+    kill(pid, SIGTERM);
+    // Wait up to 5 seconds for graceful exit
+    for (int i = 0; i < 50; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        if (!process_alive(pid)) break;
+    }
+    // Force-kill if still alive
+    if (process_alive(pid)) kill(pid, SIGKILL);
+    std::remove(pid_path(name).c_str());
+    return true;
+}
+
+static int cmd_start() {
+    const std::string dir = self_dir();
+
+    struct Daemon {
+        std::string binary_name;
+        std::string service_name;
+    };
+
+    std::vector<Daemon> daemons = {
+        {"agentos-server",     "server"},
+        {"agentos-supervisor", "supervisor"},
+    };
+
+    bool any_started = false;
+    for (const auto& d : daemons) {
+        pid_t existing = read_pid(d.service_name);
+        if (process_alive(existing)) {
+            std::cout << d.service_name << " already running (pid " << existing << ")\n";
+            continue;
+        }
+
+        std::string binary = dir + "/" + d.binary_name;
+        if (access(binary.c_str(), X_OK) != 0) {
+            std::cerr << "Cannot find " << binary << " — is it installed?\n";
+            continue;
+        }
+
+        pid_t pid = launch_daemon(binary, d.service_name);
+        write_pid(d.service_name, pid);
+        std::cout << "Started " << d.service_name << " (pid " << pid
+                  << ", log: " << log_path(d.service_name) << ")\n";
+        any_started = true;
+    }
+
+    if (any_started) {
+        // Brief pause so processes have time to bind their ports
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    return 0;
+}
+
+static int cmd_stop() {
+    for (const std::string& name : {"supervisor", "server"}) {
+        if (stop_daemon(name))
+            std::cout << "Stopped " << name << "\n";
+        else
+            std::cout << name << " was not running\n";
+    }
+    return 0;
+}
+
+static int cmd_restart() {
+    cmd_stop();
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    return cmd_start();
+}
+
 static void print_help(const char* prog) {
     std::cerr << "AgentOS CLI\n\n"
               << "Usage: " << prog << " <command> [args]\n\n"
               << "Commands:\n"
+              << "  start                    Start agentos-server and agentos-supervisor\n"
+              << "  stop                     Stop both daemons\n"
+              << "  restart                  Stop then start both daemons\n"
+              << "  status                   Show stack health\n"
               << "  agents                   List loaded agents\n"
               << "  run <agent> <message>    Run an agent\n"
               << "  ask <message>            Run the default agent\n"
-              << "  reload                   Reload agents from disk\n"
-              << "  status                   Show stack health\n\n"
+              << "  reload                   Reload agents from disk\n\n"
               << "Environment:\n"
               << "  AGENTOS_SUPERVISOR_URL  (default: http://localhost:8889)\n"
               << "  AGENTOS_DEFAULT_AGENT   (default: sysmonitor)\n";
@@ -192,7 +358,16 @@ int main(int argc, char* argv[]) {
     const std::string cmd = argv[1];
 
     try {
-        if (cmd == "agents") {
+        if (cmd == "start") {
+            return cmd_start();
+
+        } else if (cmd == "stop") {
+            return cmd_stop();
+
+        } else if (cmd == "restart") {
+            return cmd_restart();
+
+        } else if (cmd == "agents") {
             return cmd_agents(sup_url);
 
         } else if (cmd == "run") {

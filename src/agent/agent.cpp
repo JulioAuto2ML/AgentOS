@@ -46,14 +46,16 @@ static std::pair<std::string, int> parse_agentos_url(const std::string& url) {
 
 // ── Constructor / Destructor ──────────────────────────────────────────────────
 
-AgentInstance::AgentInstance(const AgentConfig&  cfg,
-                             const std::string&  agentos_server_url,
-                             const std::string&  default_llm_url,
-                             const std::string&  default_api_key)
+AgentInstance::AgentInstance(const AgentConfig&             cfg,
+                             const std::string&              agentos_server_url,
+                             const std::string&              default_llm_url,
+                             const std::string&              default_api_key,
+                             const std::vector<ChatMessage>& initial_history)
     : cfg_(cfg)
     , llm_(cfg.llm_url.empty() ? default_llm_url : cfg.llm_url,
            cfg.llm_api_key.empty() ? default_api_key : cfg.llm_api_key,
            cfg.model)  // "default" is passed through; llama-server ignores the field
+    , initial_history_(initial_history)
 {
     llm_.set_max_tokens(cfg.context_limit / 4);
 
@@ -132,7 +134,12 @@ std::string AgentInstance::run_loop(const std::string& user_message, bool verbos
         history.push_back(std::move(sys));
     }
 
-    // User turn
+    // Memory: prepend past (user, assistant) turns after system prompt so the
+    // model has context from previous sessions without seeing raw tool calls.
+    for (const auto& msg : initial_history_)
+        history.push_back(msg);
+
+    // Current user turn
     ChatMessage user_msg; user_msg.role = "user"; user_msg.content = user_message;
     history.push_back(std::move(user_msg));
 

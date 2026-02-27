@@ -84,7 +84,7 @@ No other system dependencies — `cpp-mcp` (MCP library), `nlohmann/json`, and `
 ## Build
 
 ```bash
-git clone --recurse-submodules https://github.com/your-org/AgentOS.git
+git clone --recurse-submodules https://github.com/JulioAuto2ML/AgentOS.git
 cd AgentOS
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
@@ -107,7 +107,7 @@ build/src/agentos-cli/agentos
 **1. Start the LLM backend** (example: llama-server from llama.cpp)
 
 ```bash
-llama-server -m ~/models/gemma-3-4b-it-Q4_K_M.gguf --port 8080 -c 8192
+llama-server -m [YOUR MODEL].gguf --port 8080 -c 8192
 ```
 
 Or point `AGENTOS_LLM_URL` at a remote OpenAI-compatible API (Groq, etc.).

@@ -190,6 +190,18 @@ int main(int argc, char* argv[]) {
         }
     });
 
+    // POST /agents/{name}/memory/clear
+    server.Post(R"(/agents/([^/]+)/memory/clear)", [&](const httplib::Request& req,
+                                                        httplib::Response& res) {
+        const std::string name = req.matches[1];
+        try {
+            supervisor.clear_memory(name);
+            send_json(res, {{"cleared", true}, {"agent", name}});
+        } catch (const std::exception& e) {
+            send_error(res, e.what(), 404);
+        }
+    });
+
     std::cerr << "[supervisor] Starting on " << host << ":" << port << "\n";
     std::cerr << "[supervisor] agentos-server: " << server_url << "\n";
     std::cerr << "[supervisor] LLM: " << llm_url << "\n";

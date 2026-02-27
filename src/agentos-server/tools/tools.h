@@ -23,3 +23,6 @@ void register_sysinfo_tool(mcp::server& server);
 void register_process_tool(mcp::server& server);
 void register_journal_tool(mcp::server& server);
 void register_network_tool(mcp::server& server);
+
+// Dynamic script-based tools (see tools/script_tools.h for details)
+#include "script_tools.h"

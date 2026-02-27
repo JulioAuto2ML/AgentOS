@@ -8,6 +8,7 @@ add_executable(${TARGET}
     tools/process.cpp
     tools/journal.cpp
     tools/network.cpp
+    tools/script_tools.cpp
 )
 
 target_include_directories(${TARGET} PRIVATE

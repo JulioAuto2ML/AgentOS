@@ -11,6 +11,7 @@ find_package(yaml-cpp REQUIRED)
 add_library(agent_lib STATIC
     agent_config.cpp
     agent.cpp
+    agent_memory.cpp
     llm_client.cpp
 )
 

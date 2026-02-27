@@ -30,11 +30,13 @@
 class AgentInstance {
 public:
     // agentos_server_url: base URL of agentos-server, e.g. "http://localhost:8888"
-    // If llm_url is set in cfg, it overrides default_llm_url.
-    AgentInstance(const AgentConfig&  cfg,
-                  const std::string&  agentos_server_url,
-                  const std::string&  default_llm_url = "http://localhost:8080",
-                  const std::string&  default_api_key = "");
+    // initial_history:    past (user, assistant) turns loaded from AgentMemory,
+    //                     prepended after the system prompt for cross-run memory.
+    AgentInstance(const AgentConfig&             cfg,
+                  const std::string&              agentos_server_url,
+                  const std::string&              default_llm_url    = "http://localhost:8080",
+                  const std::string&              default_api_key    = "",
+                  const std::vector<ChatMessage>& initial_history    = {});
 
     ~AgentInstance();
 
@@ -48,10 +50,11 @@ public:
     const AgentConfig& config() const { return cfg_; }
 
 private:
-    AgentConfig                   cfg_;
-    LLMClient                     llm_;
-    std::unique_ptr<mcp::sse_client> mcp_;  // MCP session with agentos-server
-    json                          tools_schema_;   // OpenAI-format tool defs
+    AgentConfig                      cfg_;
+    LLMClient                        llm_;
+    std::unique_ptr<mcp::sse_client> mcp_;            // MCP session with agentos-server
+    json                             tools_schema_;   // OpenAI-format tool defs
+    std::vector<ChatMessage>         initial_history_; // past turns from AgentMemory
 
     // Connect to agentos-server, fetch tools, build tools_schema_
     void connect_and_fetch_tools(const std::string& host, int port);
