@@ -1,137 +1,251 @@
-# NeuralOS: An AI-Centric Hybrid Operating System
+# NeuralOS
 
-## Project Overview
+**An agent-native OS layer for Linux.**
 
-NeuralOS is a research-oriented, hybrid operating system designed to efficiently manage AI agents. It leverages the stability and hardware support of the Linux kernel while integrating AI-specific functionalities directly into the operating system's core. Our goal is to create an environment optimized for the execution and management of Large Language Models (LLMs) and AI agent workflows. NeuralOS's hybrid approach allows for kernel-level resource management and AI-optimized scheduling, alongside user-space flexibility for agent execution and tool interaction.
+NeuralOS treats LLM agents as first-class system entities — named, supervised, and capable of calling OS primitives through a standard protocol — without requiring you to write any code to define or run them.
 
-## Key Features
+---
 
-*   **Hybrid Architecture:** Combines the robustness of the Linux kernel with a user-space environment for agent execution.
-*   **AI-Centric Design:** Prioritizes efficient management of LLM contexts, agent scheduling, and secure tool interaction.
-*   **Kernel-Level AI Services:** Memory manager and scheduler optimized for LLM workloads.
-*   **User-Space Flexibility:** Provides a framework for developing and running AI agents with user-space libraries.
-*   **Microservices for Tool Interaction:** Enables the creation of independent microservices that AI agents can leverage.
-* **Natural Language Interface:** Allow the user to interact with the Operative system using Natural Language.
-*   **Secure Tool Interaction:** Controlled access to system resources and tools.
-* **Memory Management:** Specialized memory management for LLM contexts.
-* **Agent scheduler:** Priority based scheduler, optimized for the needs of AI Agents.
+## The idea
 
-## Linux Distribution Requirements
+Stock Linux wasn't designed for LLM agents. You get no lifecycle management, no tool access control, no standard interface between the model and the OS. NeuralOS adds that layer on top of an existing Linux system.
 
-NeuralOS is built upon the Linux kernel and requires a Linux distribution to function. We recommend using a distribution with a relatively recent kernel (5.10 or newer) for the best compatibility.
+The mapping to OS concepts is direct:
 
-**Recommended Distributions:**
+| OS concept       | NeuralOS equivalent                              |
+|------------------|--------------------------------------------------|
+| Process          | `AgentInstance` — running LLM + tool loop        |
+| init / systemd   | `nos-supervisor` — starts, stops, restarts agents|
+| Scheduler        | `nos-supervisor` — per-agent mutex + priority    |
+| Syscall          | MCP tool call (`exec`, `sysinfo`, `read_file` …) |
+| /proc            | Agent registry (name, status, run count)         |
+| Shell            | `nos` CLI — human-facing control interface       |
 
-*   Ubuntu (20.04 LTS or newer)
-*   Fedora (34 or newer)
-*   Debian (11 or newer)
-*   Arch Linux (Latest version)
+The protocol between agents and the OS is [MCP](https://modelcontextprotocol.io) (Model Context Protocol) — JSON-RPC 2.0 over HTTP/SSE. It's an open standard, which means any external MCP-compatible tool server can be plugged in without changing agent code.
 
-**Required Packages:**
+---
 
-*   `build-essential` (or equivalent package group for your distribution) - For compiling the kernel modules and user-space libraries.
-*   `linux-headers` (matching your kernel version) - For compiling kernel modules.
-* `gcc`
-* `make`
-* `cmake`
-*   `git` - For cloning the repository.
-*   `libncurses5-dev` or `libncurses-dev` - Required by the kernel build system.
-* other dependencies can appear while building, please install as they appear.
+## Architecture
 
-## External Changes (Kernel Configuration and Boot Parameters)
+```
+┌──────────────────────────────────────────────────────────┐
+│                       nos  (CLI)                          │
+└──────────────────────┬───────────────────────────────────┘
+                       │ HTTP
+┌──────────────────────▼───────────────────────────────────┐
+│                  nos-supervisor                           │
+│  Agent registry · Lifecycle · Request routing            │
+└──────┬────────────────────────────────────┬──────────────┘
+       │ creates                            │ calls tools via MCP
+┌──────▼──────────┐               ┌────────▼──────────────┐
+│  AgentInstance  │ ←── MCP ─────►│     nos-server         │
+│  (per agent)    │               │  exec · read/write_file│
+│  LLM + loop     │               │  sysinfo · process_list│
+│  YAML config    │               │  journal_query         │
+└─────────────────┘               │  network_info · list_dir│
+                                  └────────────────────────┘
+                                            │
+                                  ┌─────────▼──────────────┐
+                                  │   LLM backend           │
+                                  │  llama-server (local)   │
+                                  │  Groq / any OpenAI API  │
+                                  └────────────────────────┘
+```
 
-To make NeuralOS fully functional, some external changes are needed:
+---
 
-1.  **Kernel Compilation:** You'll need to compile the Linux kernel with the NeuralOS modules. You should probably start by compiling a minimal kernel.
-    *   **Configuration Options:**
-        *   Ensure that `CONFIG_MODULES=y` and `CONFIG_MODULE_UNLOAD=y` are set to enable the compilation and unloading of kernel modules.
-    * It is recommended to create a new kernel config with minimal options for testing purposes.
-2.  **System Calls:** We need to add our system calls to the system calls table. This will be implemented in the future. For now, it is not necessary.
+## Components
 
-## Building NeuralOS
+**`nos-server`** — MCP tool server. Exposes Linux OS primitives as callable tools. Runs standalone; agents connect to it over HTTP/SSE.
 
-# Clone the repository:
+**`nos-supervisor`** — Agent lifecycle manager. Loads agent definitions from `agents/*.yaml`, creates `AgentInstance` objects on demand, routes requests, and exposes a REST API.
 
-``` bash
-git clone https://github.com/YourUsername/NeuralOS.git
-cd NeuralOS
-'''
+**`nos-agent-run`** — Low-level CLI to run a single agent directly (bypasses supervisor). Useful for development and debugging.
 
-Replace https://github.com/YourUsername/NeuralOS.git with the repository link
+**`nos-builder`** — Asks the LLM to generate a new agent YAML from a natural-language description, writes it to `agents/`, and prints a reload command.
 
+**`nos`** — The user-facing CLI. Wraps all the above into a single binary.
 
-Compile:
+---
+
+## Requirements
+
+- Linux (kernel 5.10+)
+- GCC or Clang with C++17
+- CMake ≥ 3.14
+- OpenSSL dev headers (`libssl-dev` on Debian/Ubuntu)
+- `yaml-cpp` dev headers (`libyaml-cpp-dev`)
+- An LLM backend with an OpenAI-compatible `/v1/chat/completions` endpoint
+
+No other system dependencies — `cpp-mcp` (MCP library), `nlohmann/json`, and `cpp-httplib` are all vendored in `third-party/`.
+
+---
+
+## Build
+
 ```bash
+git clone --recurse-submodules https://github.com/your-org/NeuralOS.git
+cd NeuralOS
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+```
 
-make
-'''
+Binaries land in:
 
-This will compile all the kernel modules and user space libraries.
+```
+build/src/nos-server/nos-server
+build/src/agent/nos-agent-run
+build/src/nos-supervisor/nos-supervisor
+build/src/nos-supervisor/nos-builder
+build/src/nos-cli/nos
+```
 
-Install
+---
 
-sudo insmod src/kernel/mm/context.ko
-sudo insmod src/kernel/mm/slab.ko
-sudo insmod src/kernel/sched/scheduler.ko
-This will install the kernel modules.
+## Quick start
 
-Run
+**1. Start the LLM backend** (example: llama-server from llama.cpp)
 
-./src/core/cli
-This will run the command line interface
+```bash
+llama-server -m ~/models/gemma-3-4b-it-Q4_K_M.gguf --port 8080 -c 8192
+```
 
-Uninstall
+Or point `NOS_LLM_URL` at a remote OpenAI-compatible API (Groq, etc.).
 
-sudo rmmod scheduler
-sudo rmmod slab
-sudo rmmod context
-This will uninstall the modules
+**2. Start nos-server**
 
-Project structure.
-This project is divided in multiple modules, each one with a specific functionality.
+```bash
+./build/src/nos-server/nos-server
+# Listening on localhost:8888 by default
+```
 
-kernel: The core of the project, including memory management, and agent scheduling.
-mm: The memory management module, in charge of the context managment, and the memory allocation.
-sched: The agent scheduler module, in charge of creating, destroying and schedule the different agents.
-sys: The sys module, in charge of the system calls.
-core: User space modules that work alongside the kernel.
-libneuralos.c: User space library, wrapping kernel syscalls.
-cli.c: Basic command line interface.
-ai-services: All the modules related to artificial intelligence.
-inference: Neural inference engine.
-engine.c: Main inference engine.
-tensor.c: Tensor operations.
-quantize.c: Quantization support.
-simd: SIMD optimizations.
-sse.c: SSE implementations.
-avx.c: AVX implementations.
-services: AI services built on top of the inference engine.
-nli.c: Natural Language Interface.
-storage: Modules related to storage management, this will be developed in the future.
-monitor: Modules related to system monitoring.
-include: Header files.
-test: Test suite, this will be developed in the future.
-tools: Development tools.
-docs: Project documentation.
-scripts: Utility scripts.
-third-party: External dependencies.
-config: Configuration files.
-Contributing
-Contributions to NeuralOS are welcome! Please see our CONTRIBUTING.md file for details.
+**3. Start nos-supervisor**
 
-License
-This project is licensed under the LICENSE file.
+```bash
+./build/src/nos-supervisor/nos-supervisor --agents-dir ./agents
+# Listening on localhost:9000 by default
+```
 
+**4. Use the CLI**
 
-**Key Improvements and Explanations:**
+```bash
+# List agents
+./build/src/nos-cli/nos agents
 
-1.  **Project Description:** A clear and concise overview of NeuralOS's goals and design.
-2.  **Key Features:** Highlights the core capabilities of the operating system.
-3.  **Linux Distribution Requirements:** Specific recommendations and required packages.
-4.  **External Changes:** Explains the kernel compilation process, configuration options, and the upcoming system calls implementation.
-5.  **Building Instructions:** Clear steps for cloning, compiling, and running NeuralOS.
-6.  **Project Structure:** Clear explanation of the different modules, and it's functions.
-7.  **Contributing and License:** Standard sections for open-source projects.
-8. **Run and uninstall:** Added code to install and uninstall the modules.
+# Ask the default agent a question
+./build/src/nos-cli/nos ask "what processes are using the most memory?"
 
-This comprehensive `README.md` file will serve as a great starting point for anyone interested in the NeuralOS project!
+# Run a specific agent
+./build/src/nos-cli/nos run sysmonitor "check disk usage and warn if any mount is above 80%"
+
+# Check service health
+./build/src/nos-cli/nos status
+```
+
+---
+
+## Environment variables
+
+| Variable          | Default                   | Description                              |
+|-------------------|---------------------------|------------------------------------------|
+| `NOS_LLM_URL`     | `http://localhost:8080`   | LLM backend base URL                     |
+| `NOS_LLM_KEY`     | _(empty)_                 | API key for remote LLM backends          |
+| `NOS_LLM_MODEL`   | _(server default)_        | Model name override                      |
+| `NOS_SERVER_URL`  | `http://localhost:8888`   | nos-server URL (used by supervisor)      |
+| `NOS_DEFAULT_AGENT` | `sysmonitor`            | Default agent for `nos ask`              |
+
+---
+
+## Agent definitions
+
+Agents live in `agents/*.yaml`. Example:
+
+```yaml
+name: sysmonitor
+description: Monitors system health and reports anomalies
+model: default
+tools: [sysinfo, process_list, journal_query, exec]
+priority: normal
+context_limit: 4096
+max_steps: 10
+system_prompt: |
+  You are a system monitoring agent. Check system health and report
+  issues concisely. Use sysinfo for resource usage, process_list to
+  find memory hogs, and journal_query to check for errors.
+```
+
+The `tools` field is an allowlist — the agent can only call the tools listed, even if nos-server exposes more. A new agent is live after `nos reload` (no restart needed).
+
+### Creating a new agent
+
+```bash
+# Describe what you want in natural language
+./build/src/nos-supervisor/nos-builder "an agent that monitors nginx logs and summarizes errors"
+
+# Reload so the supervisor picks it up
+./build/src/nos-cli/nos reload
+```
+
+---
+
+## Tests
+
+```bash
+# nos-server integration tests (requires nos-server on PATH or built)
+bash tests/test_nos_server.sh
+
+# nos-supervisor integration tests (starts its own supervisor instance)
+bash tests/test_nos_supervisor.sh
+```
+
+---
+
+## Project structure
+
+```
+NeuralOS/
+├── agents/                  # Agent YAML definitions
+│   ├── sysmonitor.yaml
+│   ├── hello.yaml
+│   └── builder.yaml
+├── src/
+│   ├── nos-server/          # MCP tool server
+│   │   ├── main.cpp
+│   │   └── tools/           # exec, filesystem, sysinfo, process, journal, network
+│   ├── agent/               # AgentInstance + LLM client
+│   │   ├── agent.h/cpp
+│   │   ├── agent_config.h/cpp
+│   │   ├── llm_client.h/cpp
+│   │   └── agent_run.cpp    # nos-agent-run entry point
+│   ├── nos-supervisor/      # Lifecycle manager + REST API
+│   │   ├── supervisor.h/cpp
+│   │   ├── main.cpp         # nos-supervisor entry point
+│   │   └── builder_main.cpp # nos-builder entry point
+│   └── nos-cli/             # nos CLI
+│       └── main.cpp
+├── tests/
+│   ├── test_nos_server.sh
+│   └── test_nos_supervisor.sh
+├── third-party/
+│   └── cpp-mcp/             # Vendored MCP library (MIT)
+├── CMakeLists.txt
+└── optimized-dev-plan.md
+```
+
+---
+
+## Roadmap
+
+Phases 1–5 are complete (v0.1). Planned next steps:
+
+- **Persistent agent memory** — context storage between runs
+- **Supervisor authentication** — token-based auth on the HTTP API
+- **Parallel agent execution** — concurrent runs of different agents
+- **Additional channels** — Telegram bot, HTTP webhook ingestion
+- **sched_ext integration** — Linux 6.12+ eBPF scheduler hooks for LLM-aware CPU scheduling
+
+---
+
+## License
+
+See [LICENSE](LICENSE).
