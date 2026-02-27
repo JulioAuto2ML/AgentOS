@@ -1,4 +1,4 @@
-set(TARGET aos-agent-run)
+set(TARGET agentos-agent-run)
 
 # yaml-cpp is required for parsing agent YAML definition files.
 # Install with: sudo apt-get install -y libyaml-cpp-dev
@@ -7,7 +7,7 @@ find_package(yaml-cpp REQUIRED)
 # Note: OpenSSL is NOT found here — it is already a PUBLIC dependency of the
 # `mcp` target (defined in the root CMakeLists.txt) and propagates automatically.
 
-# ── agent library (shared between aos-agent-run and aos-supervisor) ────────────
+# ── agent library (shared between agentos-agent-run and agentos-supervisor) ────────────
 add_library(agent_lib STATIC
     agent_config.cpp
     agent.cpp
@@ -26,7 +26,7 @@ target_link_libraries(agent_lib PUBLIC
     Threads::Threads
 )
 
-# ── aos-agent-run CLI ──────────────────────────────────────────────────────────
+# ── agentos-agent-run CLI ──────────────────────────────────────────────────────────
 add_executable(${TARGET} agent_run.cpp)
 
 target_include_directories(${TARGET} PRIVATE

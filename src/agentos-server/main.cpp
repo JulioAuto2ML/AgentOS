@@ -1,8 +1,8 @@
 // =============================================================================
-// src/aos-server/main.cpp — Entry point for aos-server
+// src/agentos-server/main.cpp — Entry point for agentos-server
 // =============================================================================
 //
-// aos-server is an MCP (Model Context Protocol) server that exposes Linux OS
+// agentos-server is an MCP (Model Context Protocol) server that exposes Linux OS
 // primitives as callable tools for LLM agents.
 //
 // Architecture:
@@ -22,7 +22,7 @@
 //   network_info   — Network interfaces, IPs, and traffic counters
 //
 // Usage:
-//   aos-server [--host <host>] [--port <port>]
+//   agentos-server [--host <host>] [--port <port>]
 //   Defaults: localhost:8888
 // =============================================================================
 
@@ -36,7 +36,7 @@
 static mcp::server* g_server = nullptr;
 
 static void handle_signal(int) {
-    std::cout << "\n[aos-server] Shutting down...\n";
+    std::cout << "\n[agentos-server] Shutting down...\n";
     if (g_server) g_server->stop();
 }
 
@@ -62,13 +62,13 @@ int main(int argc, char* argv[]) {
             print_usage(argv[0]);
             return 0;
         } else {
-            std::cerr << "[aos-server] Unknown argument: " << arg << "\n";
+            std::cerr << "[agentos-server] Unknown argument: " << arg << "\n";
             print_usage(argv[0]);
             return 1;
         }
     }
 
-    mcp::server server(host, port, "aos-server", "0.1.0");
+    mcp::server server(host, port, "agentos-server", "0.1.0");
     server.set_capabilities({{"tools", mcp::json::object()}});
 
     // Register all OS tools
@@ -80,8 +80,8 @@ int main(int argc, char* argv[]) {
     register_network_tool(server);
 
     // Print registered tools
-    std::cout << "[aos-server] Starting on " << host << ":" << port << "\n";
-    std::cout << "[aos-server] Registered tools:\n";
+    std::cout << "[agentos-server] Starting on " << host << ":" << port << "\n";
+    std::cout << "[agentos-server] Registered tools:\n";
     for (const auto& tool : server.get_tools())
         std::cout << "  - " << tool.name << ": " << tool.description.substr(0, 60) << "...\n";
 

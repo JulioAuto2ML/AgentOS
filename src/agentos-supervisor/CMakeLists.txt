@@ -1,4 +1,4 @@
-set(TARGET aos-supervisor)
+set(TARGET agentos-supervisor)
 
 add_executable(${TARGET}
     main.cpp
@@ -17,15 +17,15 @@ target_link_libraries(${TARGET} PRIVATE agent_lib)
 
 install(TARGETS ${TARGET} DESTINATION bin)
 
-# ── aos-builder CLI ───────────────────────────────────────────────────────────
-add_executable(aos-builder builder_main.cpp)
+# ── agentos-builder CLI ───────────────────────────────────────────────────────────
+add_executable(agentos-builder builder_main.cpp)
 
-target_include_directories(aos-builder PRIVATE
+target_include_directories(agentos-builder PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/src/agent
     ${CMAKE_SOURCE_DIR}/third-party/cpp-mcp/include
     ${CMAKE_SOURCE_DIR}/third-party/cpp-mcp/common
 )
 
-target_link_libraries(aos-builder PRIVATE agent_lib)
-install(TARGETS aos-builder DESTINATION bin)
+target_link_libraries(agentos-builder PRIVATE agent_lib)
+install(TARGETS agentos-builder DESTINATION bin)

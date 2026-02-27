@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 # =============================================================================
-# tests/test_nos_server.sh — Test de integración para aos-server
+# tests/test_agentos_server.sh — Test de integración para agentos-server
 # =============================================================================
 #
-# Este script levanta aos-server, llama a cada tool via HTTP y verifica que
+# Este script levanta agentos-server, llama a cada tool via HTTP y verifica que
 # las respuestas tengan el formato correcto. No necesita un LLM — testea
 # el servidor MCP directamente con curl.
 #
 # USO:
 #   cd ~/Documents/GitHub/AgentOS
-#   bash tests/test_nos_server.sh
+#   bash tests/test_agentos_server.sh
 #
 # REQUISITOS:
-#   - cmake --build build --target aos-server (ya compilado)
+#   - cmake --build build --target agentos-server (ya compilado)
 #   - curl, python3 (para pretty-print del JSON)
 # =============================================================================
 
 set -euo pipefail
 
-BINARY="./build/src/aos-server/aos-server"
+BINARY="./build/src/agentos-server/agentos-server"
 HOST="localhost"
 PORT="18888"   # puerto alternativo para no chocar con una instancia real
 BASE_URL="http://${HOST}:${PORT}"
@@ -35,18 +35,18 @@ FAILURES=0
 # ── verificar que el binario existe ───────────────────────────────────────────
 if [[ ! -f "$BINARY" ]]; then
     echo -e "${RED}ERROR:${NC} Binario no encontrado: $BINARY"
-    echo "Compilá primero con: cmake --build build --target aos-server"
+    echo "Compilá primero con: cmake --build build --target agentos-server"
     exit 1
 fi
 
-# ── levantar aos-server en background ─────────────────────────────────────────
-info "Iniciando aos-server en puerto $PORT..."
+# ── levantar agentos-server en background ─────────────────────────────────────────
+info "Iniciando agentos-server en puerto $PORT..."
 "$BINARY" --port "$PORT" &
 SERVER_PID=$!
 
 # Limpiar al salir (Ctrl+C o fin del script)
 cleanup() {
-    info "Deteniendo aos-server (PID $SERVER_PID)..."
+    info "Deteniendo agentos-server (PID $SERVER_PID)..."
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
 }
@@ -55,10 +55,10 @@ trap cleanup EXIT
 # Esperar que levante
 sleep 1
 if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-    fail "aos-server no pudo iniciarse"
+    fail "agentos-server no pudo iniciarse"
     exit 1
 fi
-pass "aos-server iniciado (PID $SERVER_PID)"
+pass "agentos-server iniciado (PID $SERVER_PID)"
 
 # ── helper: llamar una tool por MCP ───────────────────────────────────────────
 # El protocolo MCP requiere primero abrir una sesión SSE, pero podemos
@@ -90,7 +90,7 @@ has_field() {
 
 echo ""
 echo "════════════════════════════════════════"
-echo "  AgentOS aos-server — Tests Fase 1"
+echo "  AgentOS agentos-server — Tests Fase 1"
 echo "════════════════════════════════════════"
 echo ""
 
@@ -148,7 +148,7 @@ echo ""
 
 # ── TEST 4: write_file + read_file ────────────────────────────────────────────
 info "Test 4: write_file + read_file (round-trip)"
-TMP_FILE="/tmp/nos_test_$$.txt"
+TMP_FILE="/tmp/agentos_test_$$.txt"
 resp=$(call_tool "write_file" "{\"path\":\"${TMP_FILE}\",\"content\":\"AgentOS test OK\"}")
 if has_field "$resp" "bytes_written"; then
     resp2=$(call_tool "read_file" "{\"path\":\"${TMP_FILE}\"}")

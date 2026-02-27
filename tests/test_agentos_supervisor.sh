@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================================
-# tests/test_nos_supervisor.sh — Integration tests for aos-supervisor
+# tests/test_agentos_supervisor.sh — Integration tests for agentos-supervisor
 # =============================================================================
 # Tests the REST API without making actual LLM calls (agent run endpoints
 # are tested separately since they need a live LLM backend).
 #
-# Run with aos-server also running on :8888, then:
-#   bash tests/test_nos_supervisor.sh
+# Run with agentos-server also running on :8888, then:
+#   bash tests/test_agentos_supervisor.sh
 
 set -euo pipefail
 
 SUPERVISOR_PORT=18889
-BIN=./build/src/aos-supervisor/aos-supervisor
+BIN=./build/src/agentos-supervisor/agentos-supervisor
 PASS=0; FAIL=0
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; NC='\033[0m'
@@ -20,23 +20,23 @@ pass() { echo -e "${GREEN}[PASS]${NC} $1"; PASS=$((PASS+1)); }
 fail() { echo -e "${RED}[FAIL]${NC} $1"; FAIL=$((FAIL+1)); }
 
 echo "════════════════════════════════════════"
-echo "  AgentOS aos-supervisor — Tests"
+echo "  AgentOS agentos-supervisor — Tests"
 echo "════════════════════════════════════════"
 echo ""
 
 # ── Start supervisor ──────────────────────────────────────────────────────────
-echo "[INFO] Starting aos-supervisor on port $SUPERVISOR_PORT..."
+echo "[INFO] Starting agentos-supervisor on port $SUPERVISOR_PORT..."
 $BIN --port $SUPERVISOR_PORT --agents-dir ./agents \
-     AOS_LLM_URL=http://localhost:8080 2>/dev/null &
+     AGENTOS_LLM_URL=http://localhost:8080 2>/dev/null &
 SUP_PID=$!
 sleep 1
 
 # Check it's running
 if ! kill -0 $SUP_PID 2>/dev/null; then
-    echo "[ERROR] aos-supervisor failed to start"
+    echo "[ERROR] agentos-supervisor failed to start"
     exit 1
 fi
-echo "[INFO] aos-supervisor PID=$SUP_PID"
+echo "[INFO] agentos-supervisor PID=$SUP_PID"
 echo ""
 
 BASE="http://localhost:$SUPERVISOR_PORT"
@@ -115,7 +115,7 @@ fi
 echo ""
 kill $SUP_PID 2>/dev/null
 wait $SUP_PID 2>/dev/null || true
-echo "[INFO] aos-supervisor stopped"
+echo "[INFO] agentos-supervisor stopped"
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""

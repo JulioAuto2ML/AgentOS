@@ -1,8 +1,8 @@
 // =============================================================================
-// src/aos-supervisor/supervisor.h — AgentOS Agent Supervisor
+// src/agentos-supervisor/supervisor.h — AgentOS Agent Supervisor
 // =============================================================================
 //
-// aos-supervisor is the central process manager for AgentOS agents. It plays
+// agentos-supervisor is the central process manager for AgentOS agents. It plays
 // the role that systemd plays for services, but for LLM agents.
 //
 // Responsibilities:
@@ -11,7 +11,7 @@
 //   - Accept run requests via HTTP API and dispatch them to agents
 //   - Enforce per-agent concurrency (one active run at a time per agent)
 //   - Priority queue: realtime > high > normal > low
-//   - Expose a REST API consumed by aos-cli and external tools
+//   - Expose a REST API consumed by agentos-cli and external tools
 //
 // HTTP API (all JSON):
 //   GET  /agents                  → list all agents with status
@@ -75,7 +75,7 @@ struct AgentInfo {
 class Supervisor {
 public:
     Supervisor(const std::string& agents_dir,
-               const std::string& aos_server_url,
+               const std::string& agentos_server_url,
                const std::string& default_llm_url,
                const std::string& default_api_key);
 
@@ -108,7 +108,7 @@ public:
 
 private:
     std::string agents_dir_;
-    std::string aos_server_url_;
+    std::string agentos_server_url_;
     std::string default_llm_url_;
     std::string default_api_key_;
 

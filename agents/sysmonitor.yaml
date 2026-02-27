@@ -6,10 +6,10 @@
 # processes, and system logs.
 #
 # Examples:
-#   aos-agent-run agents/sysmonitor.yaml "What processes are using the most RAM?"
-#   aos-agent-run agents/sysmonitor.yaml "Is disk usage above 80%?"
-#   aos-agent-run agents/sysmonitor.yaml "Show me recent kernel errors"
-#   AOS_VERBOSE=1 aos-agent-run agents/sysmonitor.yaml "System health check"
+#   agentos-agent-run agents/sysmonitor.yaml "What processes are using the most RAM?"
+#   agentos-agent-run agents/sysmonitor.yaml "Is disk usage above 80%?"
+#   agentos-agent-run agents/sysmonitor.yaml "Show me recent kernel errors"
+#   AGENTOS_VERBOSE=1 agentos-agent-run agents/sysmonitor.yaml "System health check"
 
 name: sysmonitor
 description: System health monitor — answers questions about CPU, memory, disk, processes, logs

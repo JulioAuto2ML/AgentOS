@@ -1,30 +1,30 @@
 // =============================================================================
-// src/agent/agent_run.cpp — aos-agent-run: run an agent from the command line
+// src/agent/agent_run.cpp — agentos-agent-run: run an agent from the command line
 // =============================================================================
 //
 // A minimal CLI for running a single agent turn. Useful for testing agent
-// YAML files and the inference loop without the full aos-supervisor.
+// YAML files and the inference loop without the full agentos-supervisor.
 //
 // Usage:
-//   aos-agent-run <agent.yaml> [message]
-//   aos-agent-run <agent.yaml> --message "What is the CPU usage?"
+//   agentos-agent-run <agent.yaml> [message]
+//   agentos-agent-run <agent.yaml> --message "What is the CPU usage?"
 //
 // If message is omitted, reads from stdin (one line).
 //
 // Environment variables:
-//   AOS_LLM_URL     LLM backend URL (default: http://localhost:8080)
-//   AOS_LLM_KEY     API key for the LLM (default: empty)
-//   AOS_SERVER_URL  aos-server URL (default: http://localhost:8888)
-//   AOS_VERBOSE     Set to "1" to print intermediate tool calls to stderr
+//   AGENTOS_LLM_URL     LLM backend URL (default: http://localhost:8080)
+//   AGENTOS_LLM_KEY     API key for the LLM (default: empty)
+//   AGENTOS_SERVER_URL  agentos-server URL (default: http://localhost:8888)
+//   AGENTOS_VERBOSE     Set to "1" to print intermediate tool calls to stderr
 //
 // Examples:
 //   # Run sysmonitor agent with Groq backend
-//   AOS_LLM_URL=https://api.groq.com/openai \
-//   AOS_LLM_KEY=gsk_... \
-//   aos-agent-run agents/sysmonitor.yaml "What's eating my RAM?"
+//   AGENTOS_LLM_URL=https://api.groq.com/openai \
+//   AGENTOS_LLM_KEY=gsk_... \
+//   agentos-agent-run agents/sysmonitor.yaml "What's eating my RAM?"
 //
 //   # Run hello agent locally (llama-server must be running on :8080)
-//   aos-agent-run agents/hello.yaml "Who are you?"
+//   agentos-agent-run agents/hello.yaml "Who are you?"
 // =============================================================================
 
 #include "agent_config.h"
@@ -43,19 +43,19 @@ int main(int argc, char* argv[]) {
         std::cerr << "Usage: " << argv[0] << " <agent.yaml> [message]\n"
                   << "       " << argv[0] << " <agent.yaml> --message \"text\"\n"
                   << "\nEnvironment:\n"
-                  << "  AOS_LLM_URL     LLM backend (default: http://localhost:8080)\n"
-                  << "  AOS_LLM_KEY     API key (default: empty)\n"
-                  << "  AOS_SERVER_URL  aos-server URL (default: http://localhost:8888)\n"
-                  << "  AOS_VERBOSE     '1' for verbose output\n";
+                  << "  AGENTOS_LLM_URL     LLM backend (default: http://localhost:8080)\n"
+                  << "  AGENTOS_LLM_KEY     API key (default: empty)\n"
+                  << "  AGENTOS_SERVER_URL  agentos-server URL (default: http://localhost:8888)\n"
+                  << "  AGENTOS_VERBOSE     '1' for verbose output\n";
         return 1;
     }
 
     const std::string yaml_path      = argv[1];
-    const std::string llm_url        = getenv_or("AOS_LLM_URL",    "http://localhost:8080");
-    const std::string llm_key        = getenv_or("AOS_LLM_KEY",    "");
-    const std::string llm_model      = getenv_or("AOS_LLM_MODEL",  "");  // empty = use agent YAML
-    const std::string aos_server_url = getenv_or("AOS_SERVER_URL", "http://localhost:8888");
-    const bool        verbose        = std::string(getenv_or("AOS_VERBOSE", "0")) == "1";
+    const std::string llm_url        = getenv_or("AGENTOS_LLM_URL",    "http://localhost:8080");
+    const std::string llm_key        = getenv_or("AGENTOS_LLM_KEY",    "");
+    const std::string llm_model      = getenv_or("AGENTOS_LLM_MODEL",  "");  // empty = use agent YAML
+    const std::string agentos_server_url = getenv_or("AGENTOS_SERVER_URL", "http://localhost:8888");
+    const bool        verbose        = std::string(getenv_or("AGENTOS_VERBOSE", "0")) == "1";
 
     // Parse message from args or stdin
     std::string message;
@@ -97,20 +97,20 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // AOS_LLM_MODEL overrides the model in the YAML (useful for testing different models)
+    // AGENTOS_LLM_MODEL overrides the model in the YAML (useful for testing different models)
     if (!llm_model.empty()) cfg.model = llm_model;
 
     // "default" means: let the server decide (llama-server ignores the field;
-    // for Groq you must set AOS_LLM_MODEL or put the model name in the YAML)
+    // for Groq you must set AGENTOS_LLM_MODEL or put the model name in the YAML)
     const std::string display_model = (cfg.model == "default") ? "(server default)" : cfg.model;
 
-    std::cerr << "[aos-agent-run] Agent: " << cfg.name
+    std::cerr << "[agentos-agent-run] Agent: " << cfg.name
               << " | LLM: " << llm_url
               << " | Model: " << display_model
               << "\n";
 
     try {
-        AgentInstance agent(cfg, aos_server_url, llm_url, llm_key);
+        AgentInstance agent(cfg, agentos_server_url, llm_url, llm_key);
         std::string response = verbose
             ? agent.run_verbose(message)
             : agent.run(message);

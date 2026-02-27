@@ -1,31 +1,31 @@
 // =============================================================================
-// src/aos-cli/main.cpp — nos: the AgentOS command-line interface
+// src/agentos-cli/main.cpp — agentos: the AgentOS command-line interface
 // =============================================================================
 //
 // Central CLI for interacting with a running AgentOS stack
-// (aos-server + aos-supervisor).
+// (agentos-server + agentos-supervisor).
 //
 // Usage:
-//   nos <command> [args...]
+//   agentos <command> [args...]
 //
 // Commands:
 //   agents              List all loaded agents with status
 //   run <agent> <msg>   Run an agent with a message
-//   ask <msg>           Run the default agent (AOS_DEFAULT_AGENT or "sysmonitor")
+//   ask <msg>           Run the default agent (AGENTOS_DEFAULT_AGENT or "sysmonitor")
 //   build <description> Create a new agent from a description (builder agent)
 //   reload              Reload agents from disk
-//   server              Show aos-server tool list (via aos-server health)
+//   server              Show agentos-server tool list (via agentos-server health)
 //   status              Show full stack status
 //
 // Environment:
-//   AOS_SUPERVISOR_URL   (default: http://localhost:8889)
-//   AOS_SERVER_URL       (default: http://localhost:8888)
-//   AOS_DEFAULT_AGENT    (default: sysmonitor)
-//   AOS_LLM_URL          (forwarded to aos-agent-run / aos-builder)
-//   AOS_LLM_KEY          (forwarded)
+//   AGENTOS_SUPERVISOR_URL   (default: http://localhost:8889)
+//   AGENTOS_SERVER_URL       (default: http://localhost:8888)
+//   AGENTOS_DEFAULT_AGENT    (default: sysmonitor)
+//   AGENTOS_LLM_URL          (forwarded to agentos-agent-run / agentos-builder)
+//   AGENTOS_LLM_KEY          (forwarded)
 //
-// All commands communicate with aos-supervisor via HTTP.
-// aos-supervisor must be running (aos-supervisor &).
+// All commands communicate with agentos-supervisor via HTTP.
+// agentos-supervisor must be running (agentos-supervisor &).
 // =============================================================================
 
 #include "httplib.h"
@@ -145,12 +145,12 @@ static int cmd_status(const std::string& sup_url, const std::string& srv_url) {
     // Supervisor health
     try {
         auto sup = http_get(sup_url, "/health");
-        std::cout << "aos-supervisor  OK  (" << sup["agents"].get<int>() << " agents)\n";
+        std::cout << "agentos-supervisor  OK  (" << sup["agents"].get<int>() << " agents)\n";
     } catch (...) {
-        std::cout << "aos-supervisor  UNREACHABLE  (" << sup_url << ")\n";
+        std::cout << "agentos-supervisor  UNREACHABLE  (" << sup_url << ")\n";
     }
 
-    // aos-server health (MCP initialize)
+    // agentos-server health (MCP initialize)
     try {
         // We just check if the server responds to an HTTP GET on /sse (MCP endpoint)
         auto [host, port] = parse_url(srv_url);
@@ -158,9 +158,9 @@ static int cmd_status(const std::string& sup_url, const std::string& srv_url) {
         cli.set_read_timeout(3);
         auto res = cli.Get("/sse");
         // /sse returns 200 or starts streaming — either way the server is up
-        std::cout << "aos-server      OK  (" << srv_url << ")\n";
+        std::cout << "agentos-server      OK  (" << srv_url << ")\n";
     } catch (...) {
-        std::cout << "aos-server      UNREACHABLE  (" << srv_url << ")\n";
+        std::cout << "agentos-server      UNREACHABLE  (" << srv_url << ")\n";
     }
 
     return 0;
@@ -176,16 +176,16 @@ static void print_help(const char* prog) {
               << "  reload                   Reload agents from disk\n"
               << "  status                   Show stack health\n\n"
               << "Environment:\n"
-              << "  AOS_SUPERVISOR_URL  (default: http://localhost:8889)\n"
-              << "  AOS_DEFAULT_AGENT   (default: sysmonitor)\n";
+              << "  AGENTOS_SUPERVISOR_URL  (default: http://localhost:8889)\n"
+              << "  AGENTOS_DEFAULT_AGENT   (default: sysmonitor)\n";
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 int main(int argc, char* argv[]) {
-    const std::string sup_url = getenv_or("AOS_SUPERVISOR_URL", "http://localhost:8889");
-    const std::string srv_url = getenv_or("AOS_SERVER_URL",     "http://localhost:8888");
-    const std::string def_agent = getenv_or("AOS_DEFAULT_AGENT", "sysmonitor");
+    const std::string sup_url = getenv_or("AGENTOS_SUPERVISOR_URL", "http://localhost:8889");
+    const std::string srv_url = getenv_or("AGENTOS_SERVER_URL",     "http://localhost:8888");
+    const std::string def_agent = getenv_or("AGENTOS_DEFAULT_AGENT", "sysmonitor");
 
     if (argc < 2) { print_help(argv[0]); return 1; }
 

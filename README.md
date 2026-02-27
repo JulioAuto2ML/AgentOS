@@ -15,11 +15,11 @@ The mapping to OS concepts is direct:
 | OS concept       | AgentOS equivalent                              |
 |------------------|--------------------------------------------------|
 | Process          | `AgentInstance` — running LLM + tool loop        |
-| init / systemd   | `aos-supervisor` — starts, stops, restarts agents|
-| Scheduler        | `aos-supervisor` — per-agent mutex + priority    |
+| init / systemd   | `agentos-supervisor` — starts, stops, restarts agents|
+| Scheduler        | `agentos-supervisor` — per-agent mutex + priority    |
 | Syscall          | MCP tool call (`exec`, `sysinfo`, `read_file` …) |
 | /proc            | Agent registry (name, status, run count)         |
-| Shell            | `nos` CLI — human-facing control interface       |
+| Shell            | `agentos` CLI — human-facing control interface       |
 
 The protocol between agents and the OS is [MCP](https://modelcontextprotocol.io) (Model Context Protocol) — JSON-RPC 2.0 over HTTP/SSE. It's an open standard, which means any external MCP-compatible tool server can be plugged in without changing agent code.
 
@@ -29,16 +29,16 @@ The protocol between agents and the OS is [MCP](https://modelcontextprotocol.io)
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                       nos  (CLI)                          │
+│                    agentos  (CLI)                         │
 └──────────────────────┬───────────────────────────────────┘
                        │ HTTP
 ┌──────────────────────▼───────────────────────────────────┐
-│                  aos-supervisor                           │
+│                  agentos-supervisor                           │
 │  Agent registry · Lifecycle · Request routing            │
 └──────┬────────────────────────────────────┬──────────────┘
        │ creates                            │ calls tools via MCP
 ┌──────▼──────────┐               ┌────────▼──────────────┐
-│  AgentInstance  │ ←── MCP ─────►│     aos-server         │
+│  AgentInstance  │ ←── MCP ─────►│     agentos-server         │
 │  (per agent)    │               │  exec · read/write_file│
 │  LLM + loop     │               │  sysinfo · process_list│
 │  YAML config    │               │  journal_query         │
@@ -56,15 +56,15 @@ The protocol between agents and the OS is [MCP](https://modelcontextprotocol.io)
 
 ## Components
 
-**`aos-server`** — MCP tool server. Exposes Linux OS primitives as callable tools. Runs standalone; agents connect to it over HTTP/SSE.
+**`agentos-server`** — MCP tool server. Exposes Linux OS primitives as callable tools. Runs standalone; agents connect to it over HTTP/SSE.
 
-**`aos-supervisor`** — Agent lifecycle manager. Loads agent definitions from `agents/*.yaml`, creates `AgentInstance` objects on demand, routes requests, and exposes a REST API.
+**`agentos-supervisor`** — Agent lifecycle manager. Loads agent definitions from `agents/*.yaml`, creates `AgentInstance` objects on demand, routes requests, and exposes a REST API.
 
-**`aos-agent-run`** — Low-level CLI to run a single agent directly (bypasses supervisor). Useful for development and debugging.
+**`agentos-agent-run`** — Low-level CLI to run a single agent directly (bypasses supervisor). Useful for development and debugging.
 
-**`aos-builder`** — Asks the LLM to generate a new agent YAML from a natural-language description, writes it to `agents/`, and prints a reload command.
+**`agentos-builder`** — Asks the LLM to generate a new agent YAML from a natural-language description, writes it to `agents/`, and prints a reload command.
 
-**`nos`** — The user-facing CLI. Wraps all the above into a single binary.
+**`agentos`** — The user-facing CLI. Wraps all the above into a single binary.
 
 ---
 
@@ -93,11 +93,11 @@ cmake --build build -j$(nproc)
 Binaries land in:
 
 ```
-build/src/aos-server/aos-server
-build/src/agent/aos-agent-run
-build/src/aos-supervisor/aos-supervisor
-build/src/aos-supervisor/aos-builder
-build/src/aos-cli/aos
+build/src/agentos-server/agentos-server
+build/src/agent/agentos-agent-run
+build/src/agentos-supervisor/agentos-supervisor
+build/src/agentos-supervisor/agentos-builder
+build/src/agentos-cli/agentos
 ```
 
 ---
@@ -110,19 +110,19 @@ build/src/aos-cli/aos
 llama-server -m ~/models/gemma-3-4b-it-Q4_K_M.gguf --port 8080 -c 8192
 ```
 
-Or point `AOS_LLM_URL` at a remote OpenAI-compatible API (Groq, etc.).
+Or point `AGENTOS_LLM_URL` at a remote OpenAI-compatible API (Groq, etc.).
 
-**2. Start aos-server**
+**2. Start agentos-server**
 
 ```bash
-./build/src/aos-server/aos-server
+./build/src/agentos-server/agentos-server
 # Listening on localhost:8888 by default
 ```
 
-**3. Start aos-supervisor**
+**3. Start agentos-supervisor**
 
 ```bash
-./build/src/aos-supervisor/aos-supervisor --agents-dir ./agents
+./build/src/agentos-supervisor/agentos-supervisor --agents-dir ./agents
 # Listening on localhost:9000 by default
 ```
 
@@ -130,16 +130,16 @@ Or point `AOS_LLM_URL` at a remote OpenAI-compatible API (Groq, etc.).
 
 ```bash
 # List agents
-./build/src/aos-cli/aos agents
+./build/src/agentos-cli/agentos agents
 
 # Ask the default agent a question
-./build/src/aos-cli/aos ask "what processes are using the most memory?"
+./build/src/agentos-cli/agentos ask "what processes are using the most memory?"
 
 # Run a specific agent
-./build/src/aos-cli/aos run sysmonitor "check disk usage and warn if any mount is above 80%"
+./build/src/agentos-cli/agentos run sysmonitor "check disk usage and warn if any mount is above 80%"
 
 # Check service health
-./build/src/aos-cli/aos status
+./build/src/agentos-cli/agentos status
 ```
 
 ---
@@ -148,11 +148,11 @@ Or point `AOS_LLM_URL` at a remote OpenAI-compatible API (Groq, etc.).
 
 | Variable          | Default                   | Description                              |
 |-------------------|---------------------------|------------------------------------------|
-| `AOS_LLM_URL`     | `http://localhost:8080`   | LLM backend base URL                     |
-| `AOS_LLM_KEY`     | _(empty)_                 | API key for remote LLM backends          |
-| `AOS_LLM_MODEL`   | _(server default)_        | Model name override                      |
-| `AOS_SERVER_URL`  | `http://localhost:8888`   | aos-server URL (used by supervisor)      |
-| `AOS_DEFAULT_AGENT` | `sysmonitor`            | Default agent for `nos ask`              |
+| `AGENTOS_LLM_URL`     | `http://localhost:8080`   | LLM backend base URL                     |
+| `AGENTOS_LLM_KEY`     | _(empty)_                 | API key for remote LLM backends          |
+| `AGENTOS_LLM_MODEL`   | _(server default)_        | Model name override                      |
+| `AGENTOS_SERVER_URL`  | `http://localhost:8888`   | agentos-server URL (used by supervisor)      |
+| `AGENTOS_DEFAULT_AGENT` | `sysmonitor`            | Default agent for `agentos ask`              |
 
 ---
 
@@ -174,16 +174,16 @@ system_prompt: |
   find memory hogs, and journal_query to check for errors.
 ```
 
-The `tools` field is an allowlist — the agent can only call the tools listed, even if aos-server exposes more. A new agent is live after `nos reload` (no restart needed).
+The `tools` field is an allowlist — the agent can only call the tools listed, even if agentos-server exposes more. A new agent is live after `agentos reload` (no restart needed).
 
 ### Creating a new agent
 
 ```bash
 # Describe what you want in natural language
-./build/src/aos-supervisor/aos-builder "an agent that monitors nginx logs and summarizes errors"
+./build/src/agentos-supervisor/agentos-builder "an agent that monitors nginx logs and summarizes errors"
 
 # Reload so the supervisor picks it up
-./build/src/aos-cli/aos reload
+./build/src/agentos-cli/agentos reload
 ```
 
 ---
@@ -191,11 +191,11 @@ The `tools` field is an allowlist — the agent can only call the tools listed, 
 ## Tests
 
 ```bash
-# aos-server integration tests (requires aos-server on PATH or built)
-bash tests/test_nos_server.sh
+# agentos-server integration tests (requires agentos-server on PATH or built)
+bash tests/test_agentos_server.sh
 
-# aos-supervisor integration tests (starts its own supervisor instance)
-bash tests/test_nos_supervisor.sh
+# agentos-supervisor integration tests (starts its own supervisor instance)
+bash tests/test_agentos_supervisor.sh
 ```
 
 ---
@@ -209,23 +209,23 @@ AgentOS/
 │   ├── hello.yaml
 │   └── builder.yaml
 ├── src/
-│   ├── aos-server/          # MCP tool server
+│   ├── agentos-server/          # MCP tool server
 │   │   ├── main.cpp
 │   │   └── tools/           # exec, filesystem, sysinfo, process, journal, network
 │   ├── agent/               # AgentInstance + LLM client
 │   │   ├── agent.h/cpp
 │   │   ├── agent_config.h/cpp
 │   │   ├── llm_client.h/cpp
-│   │   └── agent_run.cpp    # aos-agent-run entry point
-│   ├── aos-supervisor/      # Lifecycle manager + REST API
+│   │   └── agent_run.cpp    # agentos-agent-run entry point
+│   ├── agentos-supervisor/      # Lifecycle manager + REST API
 │   │   ├── supervisor.h/cpp
-│   │   ├── main.cpp         # aos-supervisor entry point
-│   │   └── builder_main.cpp # aos-builder entry point
-│   └── aos-cli/             # nos CLI
+│   │   ├── main.cpp         # agentos-supervisor entry point
+│   │   └── builder_main.cpp # agentos-builder entry point
+│   └── agentos-cli/             # agentos CLI
 │       └── main.cpp
 ├── tests/
-│   ├── test_nos_server.sh
-│   └── test_nos_supervisor.sh
+│   ├── test_agentos_server.sh
+│   └── test_agentos_supervisor.sh
 ├── third-party/
 │   └── cpp-mcp/             # Vendored MCP library (MIT)
 ├── CMakeLists.txt

@@ -1,13 +1,13 @@
 // =============================================================================
-// src/aos-supervisor/main.cpp — aos-supervisor entry point
+// src/agentos-supervisor/main.cpp — agentos-supervisor entry point
 // =============================================================================
 //
-// aos-supervisor is the agent process manager for AgentOS.
+// agentos-supervisor is the agent process manager for AgentOS.
 // It loads agent YAML definitions, manages AgentInstance lifecycles, and
-// provides a REST API over HTTP for aos-cli and external tools.
+// provides a REST API over HTTP for agentos-cli and external tools.
 //
 // Usage:
-//   aos-supervisor [--host H] [--port P] [--agents-dir DIR]
+//   agentos-supervisor [--host H] [--port P] [--agents-dir DIR]
 //
 // Defaults:
 //   --host        localhost
@@ -15,9 +15,9 @@
 //   --agents-dir  ./agents
 //
 // Environment:
-//   AOS_LLM_URL     LLM backend (default: http://localhost:8080)
-//   AOS_LLM_KEY     API key (default: empty)
-//   AOS_SERVER_URL  aos-server URL (default: http://localhost:8888)
+//   AGENTOS_LLM_URL     LLM backend (default: http://localhost:8080)
+//   AGENTOS_LLM_KEY     API key (default: empty)
+//   AGENTOS_SERVER_URL  agentos-server URL (default: http://localhost:8888)
 //
 // REST API:
 //
@@ -88,9 +88,9 @@ int main(int argc, char* argv[]) {
     const std::string host        = arg_value(argc, argv, "--host",       "localhost");
     const int         port        = std::stoi(arg_value(argc, argv, "--port", "8889"));
     const std::string agents_dir  = arg_value(argc, argv, "--agents-dir", "./agents");
-    const std::string llm_url     = getenv_or("AOS_LLM_URL",    "http://localhost:8080");
-    const std::string llm_key     = getenv_or("AOS_LLM_KEY",    "");
-    const std::string server_url  = getenv_or("AOS_SERVER_URL", "http://localhost:8888");
+    const std::string llm_url     = getenv_or("AGENTOS_LLM_URL",    "http://localhost:8080");
+    const std::string llm_key     = getenv_or("AGENTOS_LLM_KEY",    "");
+    const std::string server_url  = getenv_or("AGENTOS_SERVER_URL", "http://localhost:8888");
 
     std::signal(SIGINT,  signal_handler);
     std::signal(SIGTERM, signal_handler);
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
     });
 
     std::cerr << "[supervisor] Starting on " << host << ":" << port << "\n";
-    std::cerr << "[supervisor] aos-server: " << server_url << "\n";
+    std::cerr << "[supervisor] agentos-server: " << server_url << "\n";
     std::cerr << "[supervisor] LLM: " << llm_url << "\n";
 
     if (!server.listen(host, port)) {
